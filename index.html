@@ -265,7 +265,7 @@
 
   <div class="drawer-backdrop hidden" id="drawerBackdrop"></div>
 
-  <aside class="side-drawer hidden" id="gameDrawer" aria-hidden="true">
+  <aside class="side-drawer game-surface hidden" id="gameDrawer" aria-hidden="true">
     <div class="drawer-header">
       <div>
         <p class="section-kicker">Challenge Mode</p>
@@ -307,7 +307,9 @@
       doc,
       getDoc,
       setDoc,
-      deleteDoc
+      deleteDoc,
+      getDocs,
+      where
     } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js";
 
     const firebaseConfig = {
@@ -349,7 +351,9 @@
         doc,
         getDoc,
         setDoc,
-        deleteDoc
+        deleteDoc,
+        getDocs,
+        where
       };
 
       window.dispatchEvent(new Event("firebase-ready"));

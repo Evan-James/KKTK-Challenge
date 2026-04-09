@@ -1309,13 +1309,20 @@ function renderGameMasterPanel() {
             </select>
           </label>
 
-          <label class="field-block">
-            <span>Week</span>
-            <select id="scheduleWeekSelect">
-              <option value="${currentWeekId}">${escapeHtml(getWeekLabel(now))}</option>
-              <option value="${nextWeekId}">${escapeHtml(getWeekLabel(new Date(now.getTime() + 7 * DAY_MS)))}</option>
-            </select>
-          </label>
+          <div class="schedule-grid">
+            <label class="field-block">
+              <span>Week</span>
+              <select id="scheduleWeekSelect">
+                <option value="${currentWeekId}">${escapeHtml(getWeekLabel(now))}</option>
+                <option value="${nextWeekId}">${escapeHtml(getWeekLabel(new Date(now.getTime() + 7 * DAY_MS)))}</option>
+              </select>
+            </label>
+
+            <label class="field-block">
+              <span>Calendar Day</span>
+              <select id="scheduleDaySelect">${renderDayOptionMarkup(currentWeekId)}</select>
+            </label>
+          </div>
 
           <label class="field-block">
             <span>Custom Title (optional)</span>
@@ -1381,6 +1388,13 @@ function renderGameMasterPanel() {
               </select>
             </label>
           </div>
+
+          <label class="field-block">
+            <span>Calendar Day</span>
+            <select id="customDaySelect" disabled>
+              <option value="">Choose a week first</option>
+            </select>
+          </label>
 
           <label class="field-block">
             <span>Challenge Content</span>
@@ -1451,20 +1465,20 @@ function renderGameMasterPanel() {
         <div class="gm-head">
           <div>
             <h4>Current week schedule</h4>
-            <p class="gm-copy">Remove a scheduled game at any time. Removing it also clears saved results for that game.</p>
+            <p class="gm-copy">Use the calendar to see which challenge lands on each day. Removing a game also clears saved results for that game.</p>
           </div>
         </div>
-        <div class="schedule-grid">${renderScheduleList(currentSchedule, currentWeekId)}</div>
+        ${renderScheduleCalendar(currentSchedule, currentWeekId)}
       </section>
 
       <section class="gm-card">
         <div class="gm-head">
           <div>
             <h4>Next week schedule</h4>
-            <p class="gm-copy">Use next week scheduling to prepare the next Bible challenge set in advance.</p>
+            <p class="gm-copy">Plan the next challenge set by dropping games onto next week's calendar.</p>
           </div>
         </div>
-        <div class="schedule-grid">${renderScheduleList(nextSchedule, nextWeekId)}</div>
+        ${renderScheduleCalendar(nextSchedule, nextWeekId)}
       </section>
 
       <section class="gm-card">
@@ -1496,9 +1510,12 @@ function renderGameMasterPanel() {
   document.getElementById("customChallengeForm").addEventListener("submit", handleCustomChallengeCreate);
   document.getElementById("importChallengeForm").addEventListener("submit", handleChallengeImport);
   document.getElementById("customKindSelect").addEventListener("change", updateCustomChallengeHelp);
+  document.getElementById("scheduleWeekSelect").addEventListener("change", syncGameMasterDaySelectors);
+  document.getElementById("customWeekSelect").addEventListener("change", syncGameMasterDaySelectors);
   document.getElementById("resetWeekButton").addEventListener("click", resetCurrentWeekResults);
   document.getElementById("logoutGameMasterButton").addEventListener("click", logoutGameMaster);
   updateCustomChallengeHelp();
+  syncGameMasterDaySelectors();
 
   elements.gmBody.querySelectorAll("[data-remove-challenge]").forEach((button) => {
     button.addEventListener("click", () => removeScheduledChallenge(button.dataset.weekId, button.dataset.removeChallenge));
@@ -1517,7 +1534,7 @@ function renderGameMasterPanel() {
   });
 }
 
-function renderScheduleList(schedule, weekId) {
+function renderScheduleCalendar(schedule, weekId) {
   if (!schedule.length) {
     return `
       <article class="empty-state">
@@ -1527,39 +1544,59 @@ function renderScheduleList(schedule, weekId) {
     `;
   }
 
-  return schedule.map((challenge) => {
-    const template = getTemplateById(challenge.templateId);
-    if (!template) {
-      return `
-        <article class="schedule-item">
-          <h5>${escapeHtml(challenge.title)}</h5>
-          <p class="summary-copy">This scheduled entry points to a template that is not loaded on this device.</p>
-          <div class="schedule-meta">
-            <span class="meta-pill">Missing Template</span>
+  const calendarDays = getWeekCalendarDays(weekId);
+  const grouped = Array.from({ length: 7 }, () => []);
+
+  schedule.forEach((challenge, index) => {
+    const offset = getChallengeDayOffset(challenge, index);
+    grouped[offset].push(challenge);
+  });
+
+  return `
+    <div class="calendar-grid">
+      ${calendarDays.map((day, index) => `
+        <article class="calendar-day">
+          <div class="calendar-day-head">
+            <span class="summary-label">${escapeHtml(day.dayName)}</span>
+            <strong>${escapeHtml(day.dateLabel)}</strong>
           </div>
-          <div class="gm-actions">
-            <button class="secondary-button" data-remove-challenge="${challenge.instanceId}" data-week-id="${weekId}" type="button">Remove Game</button>
+          <div class="calendar-list">
+            ${grouped[index].length
+              ? grouped[index]
+                .sort((left, right) => (left.order || 0) - (right.order || 0))
+                .map((challenge) => renderScheduleCalendarItem(challenge, weekId))
+                .join("")
+              : '<p class="calendar-empty">No challenges planned.</p>'}
           </div>
         </article>
-      `;
-    }
+      `).join("")}
+    </div>
+  `;
+}
 
+function renderScheduleCalendarItem(challenge, weekId) {
+  const template = getTemplateById(challenge.templateId);
+  if (!template) {
     return `
-      <article class="schedule-item">
-        <h5>${escapeHtml(challenge.title)}</h5>
-        <p class="summary-copy">${escapeHtml(challenge.subtitle)}</p>
-        <div class="schedule-meta">
-          <span class="meta-pill">${escapeHtml(template.typeLabel)}</span>
-          <span class="meta-pill">${escapeHtml(template.levelLabel || "Custom")}</span>
-          <span class="meta-pill">${template.maxScore} pts</span>
-          ${isCustomTemplate(template.id) ? '<span class="meta-pill">Custom</span>' : ""}
-        </div>
-        <div class="gm-actions">
-          <button class="secondary-button" data-remove-challenge="${challenge.instanceId}" data-week-id="${weekId}" type="button">Remove Game</button>
-        </div>
+      <article class="calendar-item missing">
+        <strong>${escapeHtml(challenge.title)}</strong>
+        <p class="summary-copy">Template missing on this device.</p>
+        <button class="secondary-button" data-remove-challenge="${challenge.instanceId}" data-week-id="${weekId}" type="button">Remove</button>
       </article>
     `;
-  }).join("");
+  }
+
+  return `
+    <article class="calendar-item">
+      <strong>${escapeHtml(challenge.title)}</strong>
+      <p class="summary-copy">${escapeHtml(template.typeLabel)} • ${escapeHtml(template.levelLabel || "Custom")}</p>
+      <div class="schedule-meta">
+        <span class="meta-pill">${template.maxScore} pts</span>
+        ${isCustomTemplate(template.id) ? '<span class="meta-pill">Custom</span>' : ""}
+      </div>
+      <button class="secondary-button" data-remove-challenge="${challenge.instanceId}" data-week-id="${weekId}" type="button">Remove</button>
+    </article>
+  `;
 }
 
 function renderCustomTemplateList() {
@@ -1731,9 +1768,10 @@ async function handleScheduleAdd(event) {
 
   const templateId = document.getElementById("scheduleTemplateSelect").value;
   const weekId = document.getElementById("scheduleWeekSelect").value;
+  const dayOffset = Number(document.getElementById("scheduleDaySelect").value);
   const customTitle = sanitizeScheduleTitle(document.getElementById("scheduleTitleInput").value);
 
-  await addScheduledChallenge(templateId, weekId, customTitle);
+  await addScheduledChallenge(templateId, weekId, customTitle, false, dayOffset);
 }
 
 function updateCustomChallengeHelp() {
@@ -1786,6 +1824,8 @@ async function handleCustomChallengeCreate(event) {
     const crosswordSize = Number(document.getElementById("customCrosswordSizeInput").value);
     const content = document.getElementById("customContentInput").value;
     const weekId = document.getElementById("customWeekSelect").value;
+    const dayOffsetValue = document.getElementById("customDaySelect").value;
+    const dayOffset = dayOffsetValue === "" ? null : Number(dayOffsetValue);
 
     const template = normalizeTemplate({
       id: createCustomTemplateId(title),
@@ -1804,7 +1844,7 @@ async function handleCustomChallengeCreate(event) {
     await saveRemoteCustomTemplate(template);
 
     if (weekId) {
-      await addScheduledChallenge(template.id, weekId, template.title, true);
+      await addScheduledChallenge(template.id, weekId, template.title, true, dayOffset);
       return;
     }
 
@@ -1853,7 +1893,7 @@ function handleChallengeImport(event) {
   reader.readAsText(file);
 }
 
-async function addScheduledChallenge(templateId, weekId, customTitle, reopenPanel = false) {
+async function addScheduledChallenge(templateId, weekId, customTitle, reopenPanel = false, dayOffset = null) {
   const template = getTemplateById(templateId);
   if (!template) {
     return;
@@ -1861,12 +1901,14 @@ async function addScheduledChallenge(templateId, weekId, customTitle, reopenPane
 
   ensureScheduleWeek(weekId);
   const schedule = appState.schedule[weekId];
+  const resolvedDayOffset = normalizeDayOffset(dayOffset, schedule.length);
   schedule.push({
     instanceId: `${weekId}-${templateId}-${Date.now().toString(36)}`,
     templateId,
     title: customTitle || template.title,
     subtitle: template.subtitle,
-    order: schedule.length + 1
+    order: schedule.length + 1,
+    dayOffset: resolvedDayOffset
   });
 
   saveState();
@@ -1931,16 +1973,24 @@ async function deleteCustomTemplate(templateId) {
   openGameMaster();
 }
 
-function resetCurrentWeekResults() {
+async function resetCurrentWeekResults() {
+  const confirmed = window.confirm("Reset all current week player results and clear the live leaderboard for this week?");
+  if (!confirmed) {
+    return;
+  }
+
   Object.values(appState.users).forEach((user) => {
     if (user.weeks && user.weeks[currentWeekId]) {
       user.weeks[currentWeekId].results = {};
     }
   });
 
+  remoteLeaderboard = [];
   saveState();
+  await clearRemoteCurrentWeekResults();
   renderApp();
   openGameMaster();
+  showGameMasterMessage("Current week results were fully reset.");
 }
 
 function renderQuizGame() {
@@ -2386,14 +2436,114 @@ function createDefaultSchedule(weekId) {
       templateId,
       title: template.title,
       subtitle: template.subtitle,
-      order: index + 1
+      order: index + 1,
+      dayOffset: normalizeDayOffset(index, index)
     };
   });
 }
 
 function getWeekSchedule(weekId) {
   ensureScheduleWeek(weekId);
-  return [...appState.schedule[weekId]].sort((a, b) => a.order - b.order);
+  return appState.schedule[weekId]
+    .map((challenge, index) => normalizeScheduledChallenge(challenge, index))
+    .sort((a, b) => a.dayOffset - b.dayOffset || a.order - b.order);
+}
+
+function normalizeScheduledChallenge(challenge, index) {
+  return {
+    ...challenge,
+    order: Number.isInteger(challenge.order) ? challenge.order : index + 1,
+    dayOffset: normalizeDayOffset(challenge.dayOffset, index)
+  };
+}
+
+function normalizeDayOffset(value, fallbackIndex = 0) {
+  const parsed = Number(value);
+  if (Number.isInteger(parsed) && parsed >= 0 && parsed <= 6) {
+    return parsed;
+  }
+
+  const normalizedFallback = Number(fallbackIndex);
+  return Number.isInteger(normalizedFallback) ? ((normalizedFallback % 7) + 7) % 7 : 0;
+}
+
+function getChallengeDayOffset(challenge, index) {
+  return normalizeDayOffset(challenge.dayOffset, index);
+}
+
+function getWeekCalendarDays(weekId) {
+  const anchor = getReferenceDateForWeekId(weekId);
+  const start = new Date(anchor);
+  start.setHours(0, 0, 0, 0);
+  start.setDate(start.getDate() - start.getDay());
+
+  return Array.from({ length: 7 }, (_, offset) => {
+    const date = new Date(start);
+    date.setDate(start.getDate() + offset);
+
+    return {
+      dayOffset: offset,
+      dayName: new Intl.DateTimeFormat("en-AU", { weekday: "short" }).format(date),
+      dateLabel: new Intl.DateTimeFormat("en-AU", { month: "short", day: "numeric" }).format(date)
+    };
+  });
+}
+
+function getReferenceDateForWeekId(weekId) {
+  if (weekId === currentWeekId) {
+    return now;
+  }
+
+  if (weekId === nextWeekId) {
+    return new Date(now.getTime() + 7 * DAY_MS);
+  }
+
+  const match = /^(\d{4})-W(\d{2})$/.exec(String(weekId));
+  if (!match) {
+    return new Date(now);
+  }
+
+  const year = Number(match[1]);
+  const week = Number(match[2]);
+  const jan1 = new Date(year, 0, 1);
+  const reference = new Date(jan1);
+  reference.setDate(jan1.getDate() + (week - 1) * 7);
+  return reference;
+}
+
+function renderDayOptionMarkup(weekId, selectedDayOffset = 0) {
+  return getWeekCalendarDays(weekId).map((day) => `
+    <option value="${day.dayOffset}" ${day.dayOffset === normalizeDayOffset(selectedDayOffset) ? "selected" : ""}>
+      ${escapeHtml(day.dayName)} • ${escapeHtml(day.dateLabel)}
+    </option>
+  `).join("");
+}
+
+function syncGameMasterDaySelectors() {
+  syncDaySelect("scheduleWeekSelect", "scheduleDaySelect", false);
+  syncDaySelect("customWeekSelect", "customDaySelect", true);
+}
+
+function syncDaySelect(weekSelectId, daySelectId, allowEmptyWeek) {
+  const weekSelect = document.getElementById(weekSelectId);
+  const daySelect = document.getElementById(daySelectId);
+  if (!weekSelect || !daySelect) {
+    return;
+  }
+
+  const previousValue = daySelect.value;
+  const weekId = weekSelect.value;
+  if (allowEmptyWeek && !weekId) {
+    daySelect.disabled = true;
+    daySelect.innerHTML = '<option value="">Choose a week first</option>';
+    return;
+  }
+
+  daySelect.disabled = false;
+  daySelect.innerHTML = renderDayOptionMarkup(weekId, previousValue === "" ? 0 : Number(previousValue));
+  if (previousValue !== "" && Array.from(daySelect.options).some((option) => option.value === previousValue)) {
+    daySelect.value = previousValue;
+  }
 }
 
 function ensureUserWeek(user, weekId) {
@@ -2844,6 +2994,33 @@ async function saveRemoteLeaderboardScore(user, weekId) {
     }, { merge: true });
   } catch (error) {
     console.error("Leaderboard save failed", error);
+  }
+}
+
+async function clearRemoteCurrentWeekResults() {
+  const firebase = getFirebaseAPI();
+  if (!firebase) {
+    return;
+  }
+
+  try {
+    const progressQuery = firebase.query(
+      firebase.collection(firebase.db, "progress"),
+      firebase.where("weekId", "==", currentWeekId)
+    );
+    const progressSnapshot = await firebase.getDocs(progressQuery);
+    await Promise.all(progressSnapshot.docs.map((docSnapshot) =>
+      firebase.setDoc(docSnapshot.ref, { results: {} }, { merge: true })
+    ));
+
+    const leaderboardSnapshot = await firebase.getDocs(
+      firebase.collection(firebase.db, "leaderboards", currentWeekId, "scores")
+    );
+    await Promise.all(leaderboardSnapshot.docs.map((docSnapshot) =>
+      firebase.deleteDoc(docSnapshot.ref)
+    ));
+  } catch (error) {
+    console.error("Current week reset failed", error);
   }
 }
 

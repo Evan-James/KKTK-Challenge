@@ -542,6 +542,62 @@ button {
   grid-template-columns: repeat(2, minmax(0, 1fr));
 }
 
+.calendar-grid {
+  display: grid;
+  grid-template-columns: repeat(7, minmax(0, 1fr));
+  gap: 0.85rem;
+}
+
+.calendar-day {
+  min-height: 220px;
+  padding: 0.95rem;
+  border-radius: 22px;
+  background: rgba(255, 255, 255, 0.74);
+  border: 1px solid rgba(97, 63, 30, 0.08);
+  display: grid;
+  gap: 0.8rem;
+  align-content: start;
+}
+
+.calendar-day-head {
+  display: grid;
+  gap: 0.18rem;
+}
+
+.calendar-day-head strong {
+  font-size: 1rem;
+}
+
+.calendar-list {
+  display: grid;
+  gap: 0.7rem;
+}
+
+.calendar-item {
+  padding: 0.8rem;
+  border-radius: 18px;
+  background: rgba(255, 250, 243, 0.95);
+  border: 1px solid rgba(97, 63, 30, 0.08);
+  display: grid;
+  gap: 0.45rem;
+}
+
+.calendar-item.missing {
+  background: rgba(255, 245, 236, 0.94);
+  border-style: dashed;
+}
+
+.calendar-item .secondary-button {
+  margin-top: 0.15rem;
+  width: 100%;
+}
+
+.calendar-empty {
+  margin: 0;
+  color: var(--text-soft);
+  font-size: 0.92rem;
+}
+
 .leaderboard-item,
 .schedule-item {
   padding: 1rem 1.1rem;
@@ -721,6 +777,18 @@ button {
   flex-direction: column;
 }
 
+.game-surface {
+  top: 50%;
+  left: 50%;
+  right: auto;
+  width: min(980px, calc(100% - 2rem));
+  height: min(92dvh, 880px);
+  transform: translate(-50%, -50%);
+  border-left: 1px solid rgba(97, 63, 30, 0.1);
+  border-radius: 30px;
+  box-shadow: 0 26px 68px rgba(72, 44, 20, 0.22);
+}
+
 .drawer-header {
   padding: max(1.1rem, calc(1.1rem + env(safe-area-inset-top))) 1.2rem 0.85rem;
   display: flex;
@@ -749,6 +817,11 @@ button {
 .gm-login-form {
   display: grid;
   gap: 1rem;
+}
+
+.game-shell {
+  max-width: 900px;
+  margin: 0 auto;
 }
 
 .game-card,
@@ -955,6 +1028,7 @@ button {
   .level-track,
   .crossword-layout,
   .wordsearch-layout,
+  .calendar-grid,
   .schedule-grid,
   .answer-grid {
     grid-template-columns: 1fr;
@@ -991,6 +1065,11 @@ button {
 
   .side-drawer {
     width: 100%;
+  }
+
+  .game-surface {
+    width: min(100% - 1rem, 980px);
+    height: min(96dvh, 880px);
   }
 
   .hero-panel,
@@ -1068,5 +1147,11 @@ button {
   .field-block select,
   .field-block textarea {
     padding: 0.85rem 0.9rem;
+  }
+
+  .game-surface {
+    width: calc(100% - 0.5rem);
+    height: calc(100dvh - 0.5rem);
+    border-radius: 22px;
   }
 }
