@@ -583,6 +583,8 @@ const DEFAULT_TEMPLATE_IDS = [
 const now = new Date();
 const currentWeekId = getWeekId(now);
 const nextWeekId = getWeekId(new Date(now.getTime() + 7 * DAY_MS));
+const pageMode = document.body.dataset.page || "player";
+const isGameMasterPage = pageMode === "gamemaster";
 
 const appState = loadState();
 
@@ -606,6 +608,8 @@ const elements = {
   bestGrade: document.getElementById("bestGrade"),
   leaderboardRank: document.getElementById("leaderboardRank"),
   announcementSection: document.getElementById("announcementSection"),
+  playerMessagesSection: document.getElementById("playerMessagesSection"),
+  playerMessagesList: document.getElementById("playerMessagesList"),
   challengeGrid: document.getElementById("challengeGrid"),
   levelTrack: document.getElementById("levelTrack"),
   leaderboardList: document.getElementById("leaderboardList"),
@@ -638,21 +642,30 @@ const elements = {
 };
 
 const builderProfile = createProfileDraft(null);
+const gameMasterBuilderProfile = createGameMasterProfileDraft(appState.admin.profile || null);
 
 let activeGameContext = null;
 let activeCrossword = null;
 let activeWordSearch = null;
 let remoteLeaderboard = [];
+let remotePlayerDirectory = [];
+let playerMessages = [];
+let gameMasterSentMessages = [];
 let firebaseBridgeBound = false;
 let leaderboardUnsubscribe = null;
 const scheduleUnsubscribers = {};
 const announcementUnsubscribers = {};
 let customTemplateUnsubscribe = null;
+let playerDirectoryUnsubscribe = null;
+let playerMessagesUnsubscribe = null;
+let gameMasterMessagesUnsubscribe = null;
 
 ensureScheduleWeek(currentWeekId);
 ensureScheduleWeek(nextWeekId);
-syncBuilderFromCurrentUser();
-bindEvents();
+if (!isGameMasterPage) {
+  syncBuilderFromCurrentUser();
+  bindEvents();
+}
 renderApp();
 setupFirebaseIntegration();
 
@@ -676,8 +689,15 @@ function bindEvents() {
 }
 
 function renderApp() {
+  if (isGameMasterPage) {
+    renderGameMasterPage();
+    return;
+  }
+
   const user = getCurrentUser();
-  elements.weekLabel.textContent = getWeekLabel(now);
+  if (elements.weekLabel) {
+    elements.weekLabel.textContent = getWeekLabel(now);
+  }
   renderAvatarStage(elements.authAvatarStage, user && user.profile ? user.profile : null);
 
   if (!user) {
@@ -730,6 +750,7 @@ function renderApp() {
   elements.leaderboardRank.textContent = rank ? `#${rank}` : "#--";
 
   renderAnnouncementSection(announcement);
+  renderPlayerMessages();
   renderChallengeCards(user, schedule, weekClosed);
   renderLevelTrack(totalScore);
   renderLeaderboard(board, schedule.length);
@@ -834,6 +855,10 @@ async function logoutPlayer() {
 }
 
 function setAuthMessage(message) {
+  if (!elements.authMessage) {
+    return;
+  }
+
   if (!message) {
     elements.authMessage.innerHTML = "";
     return;
@@ -848,11 +873,19 @@ function setAuthMessage(message) {
 }
 
 function clearAuthForms() {
-  elements.loginForm.reset();
-  elements.registerForm.reset();
+  if (elements.loginForm) {
+    elements.loginForm.reset();
+  }
+  if (elements.registerForm) {
+    elements.registerForm.reset();
+  }
 }
 
 function syncBuilderFromCurrentUser() {
+  if (!elements.heroNameInput) {
+    return;
+  }
+
   const user = getCurrentUser();
   Object.assign(builderProfile, createProfileDraft(user ? user.profile : null));
   elements.heroNameInput.value = builderProfile.heroName || "";
@@ -860,6 +893,10 @@ function syncBuilderFromCurrentUser() {
 }
 
 function syncBuilderUI() {
+  if (!elements.builderAvatarStage) {
+    return;
+  }
+
   renderAvatarStage(elements.builderAvatarStage, builderProfile);
   renderBuilderControls();
   renderBuilderSummary();
@@ -875,7 +912,11 @@ function renderBuilderControls() {
   renderChoiceOptions(elements.expressionOptions, PALETTE.expressions, "expression", builderProfile.expression);
 }
 
-function renderSwatchOptions(container, options, key, selectedId, iconOnly, useGradient) {
+function renderSwatchOptions(container, options, key, selectedId, iconOnly, useGradient, onSelect = updateBuilder) {
+  if (!container) {
+    return;
+  }
+
   container.innerHTML = options.map((option) => {
     const isSelected = option.id === selectedId ? "is-selected" : "";
     const swatch = useGradient ? `linear-gradient(135deg, ${option.primary}, ${option.secondary})` : option.color;
@@ -887,11 +928,15 @@ function renderSwatchOptions(container, options, key, selectedId, iconOnly, useG
   }).join("");
 
   container.querySelectorAll("button").forEach((button) => {
-    button.addEventListener("click", () => updateBuilder(button.dataset.key, button.dataset.value));
+    button.addEventListener("click", () => onSelect(button.dataset.key, button.dataset.value));
   });
 }
 
-function renderChoiceOptions(container, options, key, selectedId) {
+function renderChoiceOptions(container, options, key, selectedId, onSelect = updateBuilder) {
+  if (!container) {
+    return;
+  }
+
   container.innerHTML = options.map((option) => `
     <button class="choice-chip ${option.id === selectedId ? "is-selected" : ""}" data-key="${key}" data-value="${option.id}" type="button">
       ${escapeHtml(option.label)}
@@ -899,7 +944,7 @@ function renderChoiceOptions(container, options, key, selectedId) {
   `).join("");
 
   container.querySelectorAll("button").forEach((button) => {
-    button.addEventListener("click", () => updateBuilder(button.dataset.key, button.dataset.value));
+    button.addEventListener("click", () => onSelect(button.dataset.key, button.dataset.value));
   });
 }
 
@@ -929,6 +974,10 @@ function resetBuilderDraft() {
 }
 
 function openProfileModal(isEditing) {
+  if (!elements.profileModal) {
+    return;
+  }
+
   const user = getCurrentUser();
   if (!user) {
     return;
@@ -940,7 +989,9 @@ function openProfileModal(isEditing) {
 }
 
 function closeProfileModal() {
-  elements.profileModal.classList.add("hidden");
+  if (elements.profileModal) {
+    elements.profileModal.classList.add("hidden");
+  }
 }
 
 function handleCancelProfile() {
@@ -1207,6 +1258,39 @@ function getPodiumRankMeta(rank) {
   return { label: "Third Place", caption: "Joining the podium celebration", burst: "Joy" };
 }
 
+function renderPlayerMessages() {
+  if (!elements.playerMessagesSection || !elements.playerMessagesList) {
+    return;
+  }
+
+  if (!playerMessages.length) {
+    elements.playerMessagesSection.classList.add("hidden");
+    elements.playerMessagesList.innerHTML = "";
+    return;
+  }
+
+  elements.playerMessagesSection.classList.remove("hidden");
+  elements.playerMessagesList.innerHTML = playerMessages.map((message) => `
+    <article class="player-message-card">
+      <div class="player-message-head">
+        <div class="avatar-stage message-avatar" data-message-avatar="${escapeHtml(message.id)}"></div>
+        <div>
+          <p class="section-kicker">${escapeHtml(message.fromName || "Game Master")}</p>
+          <h4>${escapeHtml(message.subject || "Direct message")}</h4>
+          <p class="leaderboard-note">${escapeHtml(formatDateTimeLabel(message.createdAt))}</p>
+        </div>
+      </div>
+      <p class="panel-copy">${formatMultilineHtml(message.body || "")}</p>
+      ${message.weekId ? `<div class="challenge-meta"><span class="meta-pill">${escapeHtml(message.weekId)}</span></div>` : ""}
+    </article>
+  `).join("");
+
+  elements.playerMessagesList.querySelectorAll("[data-message-avatar]").forEach((stage) => {
+    const message = playerMessages.find((entry) => entry.id === stage.dataset.messageAvatar);
+    renderAvatarStage(stage, message && message.fromProfile ? message.fromProfile : appState.admin.profile);
+  });
+}
+
 function openGame(instanceId, weekId) {
   const user = getCurrentUser();
   if (!user) {
@@ -1318,32 +1402,66 @@ function renderClosedWeekChallenge(announcement) {
   `;
 }
 
-function openGameMaster() {
-  elements.drawerBackdrop.classList.remove("hidden");
-  elements.gmDrawer.classList.remove("hidden");
-  elements.gameDrawer.classList.add("hidden");
+function renderGameMasterPage() {
+  if (elements.weekLabel) {
+    elements.weekLabel.textContent = getWeekLabel(now);
+  }
+
+  if (!elements.gmBody) {
+    return;
+  }
 
   if (appState.admin.authenticated) {
     renderGameMasterPanel();
-  } else {
-    renderGameMasterLogin();
+    return;
   }
+
+  renderGameMasterLogin();
+}
+
+function openGameMaster() {
+  if (!isGameMasterPage) {
+    window.location.href = "gamemaster.html";
+    return;
+  }
+
+  if (elements.drawerBackdrop) {
+    elements.drawerBackdrop.classList.remove("hidden");
+  }
+  if (elements.gmDrawer) {
+    elements.gmDrawer.classList.remove("hidden");
+  }
+  if (elements.gameDrawer) {
+    elements.gameDrawer.classList.add("hidden");
+  }
+
+  renderGameMasterPage();
 }
 
 function closeDrawers() {
-  elements.drawerBackdrop.classList.add("hidden");
-  elements.gameDrawer.classList.add("hidden");
-  elements.gmDrawer.classList.add("hidden");
+  if (elements.drawerBackdrop) {
+    elements.drawerBackdrop.classList.add("hidden");
+  }
+  if (elements.gameDrawer) {
+    elements.gameDrawer.classList.add("hidden");
+  }
+  if (elements.gmDrawer) {
+    elements.gmDrawer.classList.add("hidden");
+  }
   activeGameContext = null;
 }
 
 function renderGameMasterLogin(errorMessage = "") {
+  if (!elements.gmBody) {
+    return;
+  }
+
   elements.gmBody.innerHTML = `
     <section class="gm-card">
       <div class="gm-head">
         <div>
           <h4>Game Master login</h4>
-          <p class="gm-copy">Sign in to manage schedules, see answer keys, and control the weekly challenge board.</p>
+          <p class="gm-copy">Sign in to manage schedules, see answer keys, message players, and control the weekly challenge board from a full-page console.</p>
         </div>
       </div>
 
@@ -1378,7 +1496,7 @@ function handleGameMasterLogin(event) {
   if (username === GAME_MASTER_CREDENTIALS.username && password === GAME_MASTER_CREDENTIALS.password) {
     appState.admin.authenticated = true;
     saveState();
-    renderGameMasterPanel();
+    renderGameMasterPage();
     return;
   }
 
@@ -1388,7 +1506,7 @@ function handleGameMasterLogin(event) {
 function logoutGameMaster() {
   appState.admin.authenticated = false;
   saveState();
-  renderGameMasterLogin();
+  renderGameMasterPage();
 }
 
 function renderGameMasterPanel() {
@@ -1396,7 +1514,7 @@ function renderGameMasterPanel() {
   const nextSchedule = getWeekSchedule(nextWeekId);
   const board = getDisplayedLeaderboard(currentWeekId);
   const currentAnnouncement = getWeekAnnouncement(currentWeekId);
-  const playerCount = Object.keys(appState.users).length;
+  const playerCount = getKnownPlayers().length;
   const customTemplateCount = Object.keys(appState.customTemplates).length;
   const builtInTemplateCount = getBuiltInTemplates().length;
   const activeBuiltInTemplateCount = getActiveBuiltInTemplates().length;
@@ -1426,6 +1544,8 @@ function renderGameMasterPanel() {
           <button class="leaderboard-refresh" id="logoutGameMasterButton" type="button">Log Out</button>
         </div>
       </section>
+
+      ${renderGameMasterAvatarBuilderCard()}
 
       <section class="gm-card">
         <div class="gm-head">
@@ -1457,6 +1577,8 @@ function renderGameMasterPanel() {
           </div>
         </form>
       </section>
+
+      ${renderGameMasterMessagingCard(board, currentAnnouncement)}
 
       <section class="gm-card">
         <div class="gm-head">
@@ -1673,6 +1795,11 @@ function renderGameMasterPanel() {
 
   document.getElementById("scheduleForm").addEventListener("submit", handleScheduleAdd);
   document.getElementById("finishWeekForm").addEventListener("submit", handleFinishWeek);
+  document.getElementById("gmAvatarForm").addEventListener("submit", handleGameMasterProfileSubmit);
+  const messagePlayerForm = document.getElementById("messagePlayerForm");
+  if (messagePlayerForm) {
+    messagePlayerForm.addEventListener("submit", handleGameMasterMessageSend);
+  }
   document.getElementById("customChallengeForm").addEventListener("submit", handleCustomChallengeCreate);
   document.getElementById("importChallengeForm").addEventListener("submit", handleChallengeImport);
   document.getElementById("customKindSelect").addEventListener("change", updateCustomChallengeHelp);
@@ -1680,12 +1807,14 @@ function renderGameMasterPanel() {
   document.getElementById("customWeekSelect").addEventListener("change", syncGameMasterDaySelectors);
   document.getElementById("resetWeekButton").addEventListener("click", resetCurrentWeekResults);
   document.getElementById("logoutGameMasterButton").addEventListener("click", logoutGameMaster);
+  document.getElementById("gmAvatarResetButton").addEventListener("click", resetGameMasterBuilderDraft);
   const reopenWeekButton = document.getElementById("reopenWeekButton");
   if (reopenWeekButton) {
     reopenWeekButton.addEventListener("click", reopenCurrentWeekAnnouncement);
   }
   updateCustomChallengeHelp();
   syncGameMasterDaySelectors();
+  renderGameMasterAvatarBuilderUI();
 
   elements.gmBody.querySelectorAll("[data-remove-challenge]").forEach((button) => {
     button.addEventListener("click", () => removeScheduledChallenge(button.dataset.weekId, button.dataset.removeChallenge));
@@ -1702,6 +1831,300 @@ function renderGameMasterPanel() {
   elements.gmBody.querySelectorAll("[data-restore-template]").forEach((button) => {
     button.addEventListener("click", () => restoreBuiltInTemplate(button.dataset.restoreTemplate));
   });
+
+  elements.gmBody.querySelectorAll("[data-message-player]").forEach((button) => {
+    button.addEventListener("click", () => focusMessageComposer(button.dataset.messagePlayer));
+  });
+}
+
+function renderGameMasterAvatarBuilderCard() {
+  const profile = createGameMasterProfileDraft(appState.admin.profile || null);
+
+  return `
+    <section class="gm-card">
+      <div class="gm-head">
+        <div>
+          <h4>Game Master avatar</h4>
+          <p class="gm-copy">Give the Game Master a pixel avatar and display name that can appear on direct player messages.</p>
+        </div>
+        <span class="gm-pill">${escapeHtml(profile.heroName || "Game Master")}</span>
+      </div>
+
+      <form class="gm-login-form" id="gmAvatarForm">
+        <div class="builder-layout gm-builder-layout">
+          <div class="avatar-stage builder" id="gmAvatarStage"></div>
+
+          <div class="builder-controls">
+            <label class="field-block">
+              <span>Display Name</span>
+              <input id="gmAvatarNameInput" maxlength="18" placeholder="Game Master" type="text" value="${escapeHtml(profile.heroName || "Game Master")}">
+            </label>
+
+            <div class="option-group">
+              <p>Avatar Frame</p>
+              <div class="choice-row" id="gmGenderOptions"></div>
+            </div>
+
+            <div class="option-group">
+              <p>Skin Tone</p>
+              <div class="swatch-row" id="gmSkinToneOptions"></div>
+            </div>
+
+            <div class="option-group">
+              <p>Hair Style</p>
+              <div class="choice-row" id="gmHairStyleOptions"></div>
+            </div>
+
+            <div class="option-group">
+              <p>Hair Color</p>
+              <div class="swatch-row" id="gmHairColorOptions"></div>
+            </div>
+
+            <div class="option-group">
+              <p>Outfit</p>
+              <div class="swatch-row" id="gmOutfitOptions"></div>
+            </div>
+
+            <div class="option-group">
+              <p>Accessory</p>
+              <div class="choice-row" id="gmAccessoryOptions"></div>
+            </div>
+
+            <div class="option-group">
+              <p>Expression</p>
+              <div class="choice-row" id="gmExpressionOptions"></div>
+            </div>
+
+            <div class="builder-tools">
+              <div class="builder-summary" id="gmBuilderSummary"></div>
+              <button class="secondary-button" id="gmAvatarResetButton" type="button">Reset</button>
+              <button class="primary-button" type="submit">Save Game Master Avatar</button>
+            </div>
+          </div>
+        </div>
+      </form>
+    </section>
+  `;
+}
+
+function renderGameMasterMessagingCard(board, currentAnnouncement) {
+  const players = getKnownPlayers();
+  const winnerId = currentAnnouncement && currentAnnouncement.winnerUserId ? currentAnnouncement.winnerUserId : (board[0] ? board[0].userId : "");
+  const selectedPlayerId = winnerId && players.some((player) => player.userId === winnerId) ? winnerId : (players[0] ? players[0].userId : "");
+  const winnerName = board[0] ? board[0].name : "the winner";
+
+  return `
+    <section class="gm-card">
+      <div class="gm-head">
+        <div>
+          <h4>Message a player</h4>
+          <p class="gm-copy">Send a direct note to any player. Winners will see Game Master messages in their own player hub.</p>
+        </div>
+        <span class="gm-pill">${players.length} players</span>
+      </div>
+
+      ${players.length ? `
+        <form class="gm-login-form" id="messagePlayerForm">
+          <div class="schedule-grid">
+            <label class="field-block">
+              <span>Player</span>
+              <select id="messagePlayerSelect">
+                ${players.map((player) => `
+                  <option value="${player.userId}" ${player.userId === selectedPlayerId ? "selected" : ""}>
+                    ${escapeHtml(player.heroName)}${player.username ? ` (@${escapeHtml(player.username)})` : ""}
+                  </option>
+                `).join("")}
+              </select>
+            </label>
+
+            <label class="field-block">
+              <span>Message Title</span>
+              <input id="messageSubjectInput" maxlength="80" placeholder="Congratulations, champion" type="text" value="${escapeHtml(currentAnnouncement && currentAnnouncement.closed && winnerId ? `Congratulations, ${winnerName}` : "")}">
+            </label>
+          </div>
+
+          <label class="field-block">
+            <span>Message</span>
+            <textarea id="messageBodyInput" maxlength="260" placeholder="Write a message the player will see in the player hub." rows="5">${escapeHtml(currentAnnouncement && currentAnnouncement.closed && winnerId ? `Amazing work this week, ${winnerName}. Your hero made it to the podium and the whole club can see your win.` : "")}</textarea>
+          </label>
+
+          <div class="gm-actions">
+            <button class="primary-button" type="submit">Send Message</button>
+          </div>
+        </form>
+      ` : `
+        <article class="empty-state">
+          <strong>No players available yet</strong>
+          <span>Players will appear here after they create an account and save their hero profile.</span>
+        </article>
+      `}
+
+      <div class="gm-message-feed">
+        ${renderGameMasterMessageFeed()}
+      </div>
+    </section>
+  `;
+}
+
+function renderGameMasterMessageFeed() {
+  if (!gameMasterSentMessages.length) {
+    return `
+      <article class="empty-state">
+        <strong>No messages sent yet</strong>
+        <span>Direct messages sent by the Game Master will appear here for quick review.</span>
+      </article>
+    `;
+  }
+
+  return gameMasterSentMessages.slice(0, 8).map((message) => `
+    <article class="player-message-card compact">
+      <div class="player-message-head">
+        <div>
+          <p class="section-kicker">To ${escapeHtml(message.toPlayerName || "Player")}</p>
+          <h4>${escapeHtml(message.subject || "Direct message")}</h4>
+          <p class="leaderboard-note">${escapeHtml(formatDateTimeLabel(message.createdAt))}</p>
+        </div>
+      </div>
+      <p class="panel-copy">${formatMultilineHtml(message.body || "")}</p>
+    </article>
+  `).join("");
+}
+
+function renderGameMasterAvatarBuilderUI() {
+  const stage = document.getElementById("gmAvatarStage");
+  if (!stage) {
+    return;
+  }
+
+  const nameInput = document.getElementById("gmAvatarNameInput");
+  if (nameInput) {
+    nameInput.value = gameMasterBuilderProfile.heroName || "Game Master";
+    if (!nameInput.dataset.bound) {
+      nameInput.addEventListener("input", () => {
+        gameMasterBuilderProfile.heroName = sanitizeHeroName(nameInput.value) || "Game Master";
+        renderGameMasterAvatarSummary();
+      });
+      nameInput.dataset.bound = "true";
+    }
+  }
+
+  renderAvatarStage(stage, gameMasterBuilderProfile);
+  renderChoiceOptions(document.getElementById("gmGenderOptions"), PALETTE.genders, "gender", gameMasterBuilderProfile.gender, updateGameMasterBuilder);
+  renderSwatchOptions(document.getElementById("gmSkinToneOptions"), PALETTE.skinTones, "skinTone", gameMasterBuilderProfile.skinTone, true, false, updateGameMasterBuilder);
+  renderChoiceOptions(document.getElementById("gmHairStyleOptions"), PALETTE.hairStyles, "hairStyle", gameMasterBuilderProfile.hairStyle, updateGameMasterBuilder);
+  renderSwatchOptions(document.getElementById("gmHairColorOptions"), PALETTE.hairColors, "hairColor", gameMasterBuilderProfile.hairColor, true, false, updateGameMasterBuilder);
+  renderSwatchOptions(document.getElementById("gmOutfitOptions"), PALETTE.outfits, "outfit", gameMasterBuilderProfile.outfit, false, true, updateGameMasterBuilder);
+  renderChoiceOptions(document.getElementById("gmAccessoryOptions"), PALETTE.accessories, "accessory", gameMasterBuilderProfile.accessory, updateGameMasterBuilder);
+  renderChoiceOptions(document.getElementById("gmExpressionOptions"), PALETTE.expressions, "expression", gameMasterBuilderProfile.expression, updateGameMasterBuilder);
+  renderGameMasterAvatarSummary();
+}
+
+function renderGameMasterAvatarSummary() {
+  const summary = document.getElementById("gmBuilderSummary");
+  const nameInput = document.getElementById("gmAvatarNameInput");
+  if (!summary) {
+    return;
+  }
+
+  const displayName = sanitizeHeroName(nameInput ? nameInput.value : "") || "Game Master";
+  const gender = findById(PALETTE.genders, gameMasterBuilderProfile.gender);
+  const hairStyle = findById(PALETTE.hairStyles, gameMasterBuilderProfile.hairStyle);
+  const hairColor = findById(PALETTE.hairColors, gameMasterBuilderProfile.hairColor);
+  const outfit = findById(PALETTE.outfits, gameMasterBuilderProfile.outfit);
+  const accessory = findById(PALETTE.accessories, gameMasterBuilderProfile.accessory);
+  const expression = findById(PALETTE.expressions, gameMasterBuilderProfile.expression);
+
+  summary.innerHTML = `
+    <strong>${escapeHtml(displayName)}</strong>
+    <span>${escapeHtml(gender.label)} frame, ${escapeHtml(hairColor.label.toLowerCase())} ${escapeHtml(hairStyle.label.toLowerCase())} hair, ${escapeHtml(outfit.label.toLowerCase())} outfit, ${escapeHtml(accessory.label.toLowerCase())} accessory, ${escapeHtml(expression.label.toLowerCase())} expression.</span>
+  `;
+}
+
+function updateGameMasterBuilder(key, value) {
+  gameMasterBuilderProfile[key] = value;
+  renderGameMasterAvatarBuilderUI();
+}
+
+function resetGameMasterBuilderDraft() {
+  Object.assign(gameMasterBuilderProfile, createGameMasterProfileDraft(appState.admin.profile || null));
+  renderGameMasterAvatarBuilderUI();
+}
+
+async function handleGameMasterProfileSubmit(event) {
+  event.preventDefault();
+
+  const nameInput = document.getElementById("gmAvatarNameInput");
+  const heroName = sanitizeHeroName(nameInput ? nameInput.value : "") || "Game Master";
+  appState.admin.profile = createGameMasterProfileDraft({
+    ...gameMasterBuilderProfile,
+    heroName
+  });
+
+  Object.assign(gameMasterBuilderProfile, appState.admin.profile);
+  saveState();
+  renderGameMasterPanel();
+  showGameMasterMessage("Game Master avatar updated.", "gmAvatarForm");
+}
+
+async function handleGameMasterMessageSend(event) {
+  event.preventDefault();
+
+  const players = getKnownPlayers();
+  const playerId = document.getElementById("messagePlayerSelect")?.value || "";
+  const subject = sanitizeLongText(document.getElementById("messageSubjectInput")?.value || "");
+  const body = sanitizeAnnouncementMessage(document.getElementById("messageBodyInput")?.value || "");
+  const recipient = players.find((player) => player.userId === playerId);
+
+  if (!recipient) {
+    showGameMasterMessage("Choose a player before sending a message.", "messagePlayerForm");
+    return;
+  }
+
+  if (!body) {
+    showGameMasterMessage("Write a message before sending it to the player.", "messagePlayerForm");
+    return;
+  }
+
+  const fromProfile = createGameMasterProfileDraft(appState.admin.profile || null);
+  const fromName = sanitizePodiumName(fromProfile.heroName || "Game Master") || "Game Master";
+
+  try {
+    await saveRemotePlayerMessage({
+      toUserId: recipient.userId,
+      toPlayerName: recipient.heroName || recipient.username || "Player",
+      fromName,
+      fromProfile,
+      subject: subject || `Message from ${fromName}`,
+      body,
+      weekId: currentWeekId,
+      createdAt: new Date().toISOString()
+    });
+  } catch (error) {
+    showGameMasterMessage("The message could not be sent right now. Check Firebase and try again.", "messagePlayerForm");
+    return;
+  }
+
+  const bodyInput = document.getElementById("messageBodyInput");
+  if (bodyInput) {
+    bodyInput.value = "";
+  }
+  const subjectInput = document.getElementById("messageSubjectInput");
+  if (subjectInput) {
+    subjectInput.value = "";
+  }
+
+  showGameMasterMessage(`Message sent to ${recipient.heroName || recipient.username}.`, "messagePlayerForm");
+}
+
+function focusMessageComposer(playerId) {
+  const select = document.getElementById("messagePlayerSelect");
+  if (!select) {
+    return;
+  }
+
+  select.value = playerId;
+  select.scrollIntoView({ behavior: "smooth", block: "center" });
+  select.focus();
 }
 
 function renderScheduleCalendar(schedule, weekId) {
@@ -1927,7 +2350,10 @@ function renderGameMasterBoard(board) {
             <div class="leaderboard-note">${escapeHtml(entry.note)}</div>
           </div>
         </div>
-        <div class="leaderboard-score">${entry.score}</div>
+        <div class="gm-player-actions">
+          <div class="leaderboard-score">${entry.score}</div>
+          ${entry.userId ? `<button class="secondary-button compact-button" data-message-player="${entry.userId}" type="button">Message Player</button>` : ""}
+        </div>
       </div>
     </article>
   `).join("");
@@ -2884,6 +3310,8 @@ function bindFirebaseBridge(firebase) {
     await handleFirebaseAuthState(authUser);
   });
 
+  listenToPlayerDirectory();
+  listenToGameMasterMessages();
   listenToLeaderboard();
   listenToRemoteCustomTemplates();
   listenToSchedule(currentWeekId);
@@ -2895,6 +3323,11 @@ function bindFirebaseBridge(firebase) {
 async function handleFirebaseAuthState(authUser) {
   if (!authUser) {
     appState.currentUserId = null;
+    playerMessages = [];
+    if (playerMessagesUnsubscribe) {
+      playerMessagesUnsubscribe();
+      playerMessagesUnsubscribe = null;
+    }
     saveState();
     closeDrawers();
     closeProfileModal();
@@ -2917,12 +3350,15 @@ async function handleFirebaseAuthState(authUser) {
   appState.users[authUser.uid].username = username;
   appState.currentUserId = authUser.uid;
 
+  listenToPlayerDirectory();
+  listenToGameMasterMessages();
   listenToLeaderboard();
   listenToRemoteCustomTemplates();
   listenToSchedule(currentWeekId);
   listenToSchedule(nextWeekId);
   listenToWeekAnnouncement(currentWeekId);
   listenToWeekAnnouncement(nextWeekId);
+  listenToPlayerMessages(authUser.uid);
   await loadRemoteProfile(authUser.uid);
   await loadRemoteWeekProgress(authUser.uid, currentWeekId);
 
@@ -2961,6 +3397,55 @@ function getDisplayedLeaderboard(weekId) {
   }
 
   return buildLeaderboard(weekId);
+}
+
+function getKnownPlayers() {
+  const playersById = {};
+
+  remotePlayerDirectory.forEach((entry) => {
+    if (!entry.userId) {
+      return;
+    }
+
+    playersById[entry.userId] = {
+      userId: entry.userId,
+      username: entry.username || "",
+      heroName: entry.heroName || entry.username || "Player",
+      profile: entry.profile ? createProfileDraft(entry.profile) : null
+    };
+  });
+
+  Object.values(appState.users).forEach((user) => {
+    if (!user || !user.id) {
+      return;
+    }
+
+    const existing = playersById[user.id] || {};
+    playersById[user.id] = {
+      userId: user.id,
+      username: user.username || existing.username || "",
+      heroName: user.profile?.heroName || existing.heroName || user.username || "Player",
+      profile: user.profile ? createProfileDraft(user.profile) : (existing.profile ? createProfileDraft(existing.profile) : null)
+    };
+  });
+
+  remoteLeaderboard.forEach((entry) => {
+    if (!entry.userId) {
+      return;
+    }
+
+    const existing = playersById[entry.userId] || {};
+    playersById[entry.userId] = {
+      userId: entry.userId,
+      username: existing.username || "",
+      heroName: entry.name || existing.heroName || "Player",
+      profile: existing.profile ? createProfileDraft(existing.profile) : null
+    };
+  });
+
+  return Object.values(playersById).sort((left, right) =>
+    (left.heroName || left.username).localeCompare(right.heroName || right.username)
+  );
 }
 
 function getWeekAnnouncement(weekId) {
@@ -3103,6 +3588,21 @@ async function fetchAnnouncementProfile(userId, fallbackName) {
   return fallbackProfile;
 }
 
+function normalizePlayerMessage(rawMessage) {
+  return {
+    id: String(rawMessage && rawMessage.id ? rawMessage.id : ""),
+    toUserId: String(rawMessage && rawMessage.toUserId ? rawMessage.toUserId : ""),
+    toPlayerName: sanitizePodiumName(rawMessage && rawMessage.toPlayerName ? rawMessage.toPlayerName : ""),
+    fromName: sanitizePodiumName(rawMessage && rawMessage.fromName ? rawMessage.fromName : "Game Master"),
+    fromRole: String(rawMessage && rawMessage.fromRole ? rawMessage.fromRole : "gamemaster"),
+    fromProfile: rawMessage && rawMessage.fromProfile ? createGameMasterProfileDraft(rawMessage.fromProfile) : createGameMasterProfileDraft(appState.admin.profile || null),
+    subject: sanitizeLongText(rawMessage && rawMessage.subject ? rawMessage.subject : "Direct message"),
+    body: sanitizeAnnouncementMessage(rawMessage && rawMessage.body ? rawMessage.body : ""),
+    createdAt: String(rawMessage && rawMessage.createdAt ? rawMessage.createdAt : new Date(0).toISOString()),
+    weekId: String(rawMessage && rawMessage.weekId ? rawMessage.weekId : "")
+  };
+}
+
 function listenToLeaderboard() {
   const firebase = getFirebaseAPI();
   if (!firebase) {
@@ -3135,6 +3635,103 @@ function listenToLeaderboard() {
   }, (error) => {
     console.error("Leaderboard listener failed", error);
   });
+}
+
+function listenToPlayerDirectory() {
+  const firebase = getFirebaseAPI();
+  if (!firebase) {
+    return;
+  }
+
+  if (playerDirectoryUnsubscribe) {
+    playerDirectoryUnsubscribe();
+  }
+
+  playerDirectoryUnsubscribe = firebase.onSnapshot(
+    firebase.collection(firebase.db, "profiles"),
+    (snapshot) => {
+      remotePlayerDirectory = snapshot.docs.map((entry) => {
+        const data = entry.data() || {};
+        return {
+          userId: entry.id,
+          username: sanitizeUsername(data.username || ""),
+          heroName: sanitizePodiumName(data.profile?.heroName || data.username || "Player"),
+          profile: data.profile ? createProfileDraft(data.profile) : null
+        };
+      });
+
+      renderApp();
+      if (appState.admin.authenticated && isGameMasterPage) {
+        renderGameMasterPanel();
+      }
+    },
+    (error) => {
+      console.error("Player directory listen failed", error);
+    }
+  );
+}
+
+function listenToPlayerMessages(userId) {
+  const firebase = getFirebaseAPI();
+  if (!firebase || !userId) {
+    return;
+  }
+
+  if (playerMessagesUnsubscribe) {
+    playerMessagesUnsubscribe();
+  }
+
+  const messagesQuery = firebase.query(
+    firebase.collection(firebase.db, "playerMessages"),
+    firebase.where("toUserId", "==", userId)
+  );
+
+  playerMessagesUnsubscribe = firebase.onSnapshot(
+    messagesQuery,
+    (snapshot) => {
+      playerMessages = snapshot.docs.map((entry) => normalizePlayerMessage({
+        id: entry.id,
+        ...entry.data()
+      })).sort((left, right) => String(right.createdAt).localeCompare(String(left.createdAt)));
+      renderApp();
+    },
+    (error) => {
+      console.error("Player message listen failed", error);
+    }
+  );
+}
+
+function listenToGameMasterMessages() {
+  const firebase = getFirebaseAPI();
+  if (!firebase) {
+    return;
+  }
+
+  if (gameMasterMessagesUnsubscribe) {
+    gameMasterMessagesUnsubscribe();
+  }
+
+  const messagesQuery = firebase.query(
+    firebase.collection(firebase.db, "playerMessages"),
+    firebase.where("fromRole", "==", "gamemaster")
+  );
+
+  gameMasterMessagesUnsubscribe = firebase.onSnapshot(
+    messagesQuery,
+    (snapshot) => {
+      gameMasterSentMessages = snapshot.docs.map((entry) => normalizePlayerMessage({
+        id: entry.id,
+        ...entry.data()
+      })).sort((left, right) => String(right.createdAt).localeCompare(String(left.createdAt)));
+
+      if (appState.admin.authenticated && isGameMasterPage) {
+        renderGameMasterPanel();
+      }
+    },
+    (error) => {
+      console.error("Game Master message listen failed", error);
+    }
+  );
 }
 
 function listenToRemoteCustomTemplates() {
@@ -3342,6 +3939,30 @@ function listenToWeekAnnouncement(weekId) {
   );
 }
 
+async function saveRemotePlayerMessage(message) {
+  const firebase = getFirebaseAPI();
+  if (!firebase || !message || !message.toUserId) {
+    return;
+  }
+
+  try {
+    await firebase.addDoc(firebase.collection(firebase.db, "playerMessages"), {
+      toUserId: message.toUserId,
+      toPlayerName: message.toPlayerName,
+      fromRole: "gamemaster",
+      fromName: message.fromName,
+      fromProfile: message.fromProfile,
+      subject: message.subject,
+      body: message.body,
+      weekId: message.weekId,
+      createdAt: message.createdAt
+    });
+  } catch (error) {
+    console.error("Player message save failed", error);
+    throw error;
+  }
+}
+
 async function loadRemoteProfile(userId) {
   const firebase = getFirebaseAPI();
   const user = appState.users[userId];
@@ -3546,7 +4167,20 @@ function createProfileDraft(existingProfile) {
   };
 }
 
+function createGameMasterProfileDraft(existingProfile) {
+  const draft = createProfileDraft(existingProfile || null);
+  draft.heroName = existingProfile?.heroName || "Game Master";
+  draft.outfit = existingProfile?.outfit || "royal";
+  draft.accessory = existingProfile?.accessory || "crown";
+  draft.expression = existingProfile?.expression || "joy";
+  return draft;
+}
+
 function renderAvatarStage(element, profile) {
+  if (!element) {
+    return;
+  }
+
   const resolvedProfile = createProfileDraft(profile || null);
   element.innerHTML = `
     <div class="pixel-avatar-wrap">
@@ -3823,7 +4457,10 @@ function loadState() {
       customTemplates: parsed.customTemplates || {},
       remoteCustomTemplateIds: parsed.remoteCustomTemplateIds || [],
       archivedBuiltInTemplateIds: parsed.archivedBuiltInTemplateIds || [],
-      admin: { authenticated: false }
+      admin: {
+        authenticated: false,
+        profile: createGameMasterProfileDraft(parsed.adminProfile || null)
+      }
     };
   } catch (error) {
     return createDefaultState();
@@ -3840,7 +4477,10 @@ function createDefaultState() {
     customTemplates: {},
     remoteCustomTemplateIds: [],
     archivedBuiltInTemplateIds: [],
-    admin: { authenticated: false }
+    admin: {
+      authenticated: false,
+      profile: createGameMasterProfileDraft(null)
+    }
   };
 }
 
@@ -3853,7 +4493,8 @@ function saveState() {
     weekAnnouncements: appState.weekAnnouncements,
     customTemplates: appState.customTemplates,
     remoteCustomTemplateIds: appState.remoteCustomTemplateIds,
-    archivedBuiltInTemplateIds: appState.archivedBuiltInTemplateIds
+    archivedBuiltInTemplateIds: appState.archivedBuiltInTemplateIds,
+    adminProfile: appState.admin.profile
   }));
 }
 
@@ -4232,6 +4873,20 @@ function getWeekId(date) {
 function getWeekLabel(date) {
   const formatter = new Intl.DateTimeFormat("en-AU", { month: "short", day: "numeric", year: "numeric" });
   return `Week of ${formatter.format(date)}`;
+}
+
+function formatDateTimeLabel(value) {
+  const parsed = new Date(value);
+  if (Number.isNaN(parsed.getTime())) {
+    return "Just now";
+  }
+
+  return new Intl.DateTimeFormat("en-AU", {
+    month: "short",
+    day: "numeric",
+    hour: "numeric",
+    minute: "2-digit"
+  }).format(parsed);
 }
 
 function hashSeed(input) {

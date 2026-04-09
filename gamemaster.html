@@ -1,0 +1,108 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+  <meta name="theme-color" content="#fef6dd">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="mobile-web-app-capable" content="yes">
+  <title>KKTK Weekly Challenges | Game Master</title>
+  <link rel="stylesheet" href="app.css">
+</head>
+<body data-page="gamemaster">
+  <div class="background-orb orb-one"></div>
+  <div class="background-orb orb-two"></div>
+  <div class="background-ribbon"></div>
+
+  <header class="topbar">
+    <div>
+      <p class="brand-kicker">Bible Adventure Club</p>
+      <h1 class="brand-title">Game Master Console</h1>
+    </div>
+
+    <div class="topbar-actions">
+      <div class="week-pill" id="weekLabel"></div>
+      <a class="ghost-button" href="index.html">Back To Player Hub</a>
+    </div>
+  </header>
+
+  <main class="app-shell admin-shell">
+    <section class="content-panel admin-console-shell">
+      <div id="gmBody"></div>
+    </section>
+  </main>
+
+  <script src="app.js"></script>
+  <script type="module">
+    import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-app.js";
+    import {
+      getAuth,
+      createUserWithEmailAndPassword,
+      signInWithEmailAndPassword,
+      onAuthStateChanged,
+      signOut
+    } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-auth.js";
+    import {
+      getFirestore,
+      collection,
+      addDoc,
+      query,
+      orderBy,
+      onSnapshot,
+      doc,
+      getDoc,
+      setDoc,
+      deleteDoc,
+      getDocs,
+      where
+    } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js";
+
+    const firebaseConfig = {
+      apiKey: "AIzaSyAUbqNfrBqLQj2K4cP7wFl5IRuMI6WMcaY",
+      authDomain: "kktk-challenge.firebaseapp.com",
+      projectId: "kktk-challenge",
+      storageBucket: "kktk-challenge.firebasestorage.app",
+      messagingSenderId: "680006419533",
+      appId: "1:680006419533:web:c086b2fb352d8392b98804"
+    };
+
+    const hasPlaceholderConfig = Object.values(firebaseConfig).some((value) => String(value).startsWith("PASTE_"));
+
+    if (hasPlaceholderConfig) {
+      window.firebaseAPI = {
+        ready: false,
+        error: "Add your Firebase project config in index.html before using online login."
+      };
+      window.dispatchEvent(new Event("firebase-ready"));
+    } else {
+      const app = initializeApp(firebaseConfig);
+      const auth = getAuth(app);
+      const db = getFirestore(app);
+
+      window.firebaseAPI = {
+        ready: true,
+        app,
+        auth,
+        db,
+        createUserWithEmailAndPassword,
+        signInWithEmailAndPassword,
+        onAuthStateChanged,
+        signOut,
+        collection,
+        addDoc,
+        query,
+        orderBy,
+        onSnapshot,
+        doc,
+        getDoc,
+        setDoc,
+        deleteDoc,
+        getDocs,
+        where
+      };
+
+      window.dispatchEvent(new Event("firebase-ready"));
+    }
+  </script>
+</body>
+</html>
