@@ -605,6 +605,7 @@ const elements = {
   weeklyScore: document.getElementById("weeklyScore"),
   bestGrade: document.getElementById("bestGrade"),
   leaderboardRank: document.getElementById("leaderboardRank"),
+  announcementSection: document.getElementById("announcementSection"),
   challengeGrid: document.getElementById("challengeGrid"),
   levelTrack: document.getElementById("levelTrack"),
   leaderboardList: document.getElementById("leaderboardList"),
@@ -645,6 +646,7 @@ let remoteLeaderboard = [];
 let firebaseBridgeBound = false;
 let leaderboardUnsubscribe = null;
 const scheduleUnsubscribers = {};
+const announcementUnsubscribers = {};
 let customTemplateUnsubscribe = null;
 
 ensureScheduleWeek(currentWeekId);
@@ -679,6 +681,7 @@ function renderApp() {
   renderAvatarStage(elements.authAvatarStage, user && user.profile ? user.profile : null);
 
   if (!user) {
+    renderAnnouncementSection(null);
     elements.authView.classList.remove("hidden");
     elements.appShell.classList.add("hidden");
     elements.playerBadge.classList.add("hidden");
@@ -702,6 +705,8 @@ function renderApp() {
 
   const schedule = getWeekSchedule(currentWeekId);
   const board = getDisplayedLeaderboard(currentWeekId);
+  const announcement = getWeekAnnouncement(currentWeekId);
+  const weekClosed = Boolean(announcement && announcement.closed);
   const totalScore = getPlayerWeekScore(user, currentWeekId);
   const completed = getCompletedCount(user, currentWeekId, schedule);
   const level = getLevelForScore(totalScore);
@@ -710,9 +715,13 @@ function renderApp() {
 
   renderAvatarStage(elements.heroAvatarStage, savedProfile || builderProfile);
   elements.heroName.textContent = savedProfile ? savedProfile.heroName : "Create your pixel hero";
-  elements.heroTagline.textContent = savedProfile
-    ? `${savedProfile.heroName} and @${user.username} are ready for this week's challenge path as a ${level.name.toLowerCase()}.`
-    : "Finish your first hero build to unlock the weekly challenge path.";
+  if (savedProfile && weekClosed) {
+    elements.heroTagline.textContent = `${savedProfile.heroName} has reached the end of this week's faith quest. Check the winner podium and get ready for the next challenge run.`;
+  } else if (savedProfile) {
+    elements.heroTagline.textContent = `${savedProfile.heroName} and @${user.username} are ready for this week's challenge path as a ${level.name.toLowerCase()}.`;
+  } else {
+    elements.heroTagline.textContent = "Finish your first hero build to unlock the weekly challenge path.";
+  }
   elements.currentLevel.textContent = level.name;
   elements.weeklyGrade.textContent = getOverallGrade(user, currentWeekId, schedule);
   elements.completedCount.textContent = `${completed} / ${schedule.length}`;
@@ -720,14 +729,17 @@ function renderApp() {
   elements.bestGrade.textContent = getBestGrade(user, currentWeekId, schedule);
   elements.leaderboardRank.textContent = rank ? `#${rank}` : "#--";
 
-  renderChallengeCards(user, schedule);
+  renderAnnouncementSection(announcement);
+  renderChallengeCards(user, schedule, weekClosed);
   renderLevelTrack(totalScore);
   renderLeaderboard(board, schedule.length);
 
   const hasOpenChallenge = schedule.some((challenge) => !getChallengeResult(user, currentWeekId, challenge.instanceId).completed);
-  elements.startChallengeButton.disabled = !user.profile || !hasOpenChallenge;
+  elements.startChallengeButton.disabled = !user.profile || !hasOpenChallenge || weekClosed;
   if (!user.profile) {
     elements.startChallengeButton.textContent = "Create Your Hero";
+  } else if (weekClosed) {
+    elements.startChallengeButton.textContent = "Week Finished";
   } else if (!schedule.length) {
     elements.startChallengeButton.textContent = "No Games Scheduled";
   } else if (!hasOpenChallenge) {
@@ -983,6 +995,11 @@ function handleStartChallenge() {
     return;
   }
 
+  if (isWeekClosed(currentWeekId)) {
+    renderClosedWeekChallenge(getWeekAnnouncement(currentWeekId));
+    return;
+  }
+
   const schedule = getWeekSchedule(currentWeekId);
   const nextChallenge = schedule.find((challenge) => !getChallengeResult(user, currentWeekId, challenge.instanceId).completed);
   if (!nextChallenge) {
@@ -992,7 +1009,7 @@ function handleStartChallenge() {
   openGame(nextChallenge.instanceId, currentWeekId);
 }
 
-function renderChallengeCards(user, schedule) {
+function renderChallengeCards(user, schedule, weekClosed = false) {
   if (!schedule.length) {
     elements.challengeGrid.innerHTML = `
       <article class="empty-state">
@@ -1006,7 +1023,7 @@ function renderChallengeCards(user, schedule) {
   elements.challengeGrid.innerHTML = schedule.map((challenge) => {
     const template = getTemplateById(challenge.templateId);
     const result = getChallengeResult(user, currentWeekId, challenge.instanceId);
-    const locked = result.completed;
+    const locked = result.completed || weekClosed;
 
     if (!template) {
       return `
@@ -1051,7 +1068,7 @@ function renderChallengeCards(user, schedule) {
         <div class="challenge-meta">
           <span class="meta-pill">${escapeHtml(template.levelLabel)}</span>
           <span class="meta-pill">Max ${template.maxScore} pts</span>
-          <span class="meta-pill">${locked ? "Locked" : "Ready"}</span>
+          <span class="meta-pill">${weekClosed ? "Week Finished" : locked ? "Locked" : "Ready"}</span>
         </div>
 
         <div class="challenge-stats">
@@ -1060,7 +1077,7 @@ function renderChallengeCards(user, schedule) {
         </div>
 
         <button class="challenge-action" data-open-game="${challenge.instanceId}" ${locked ? "disabled" : ""} type="button">
-          ${locked ? "Completed" : "Play Challenge"}
+          ${weekClosed ? "Week Finished" : locked ? "Completed" : "Play Challenge"}
         </button>
       </article>
     `;
@@ -1107,9 +1124,97 @@ function renderLeaderboard(board, challengeCount) {
   `).join("");
 }
 
+function renderAnnouncementSection(announcement) {
+  if (!elements.announcementSection) {
+    return;
+  }
+
+  if (!announcement || !announcement.closed) {
+    elements.announcementSection.classList.add("hidden");
+    elements.announcementSection.innerHTML = "";
+    return;
+  }
+
+  const podiumEntries = getPodiumDisplayEntries(announcement.podium || []);
+  const winner = announcement.podium && announcement.podium[0] ? announcement.podium[0] : null;
+
+  elements.announcementSection.classList.remove("hidden");
+  elements.announcementSection.innerHTML = `
+    <div class="celebration-head">
+      <div class="celebration-copy">
+        <p class="section-kicker">Winner Announcement</p>
+        <h3>${escapeHtml(winner ? `${winner.name} leads this week's podium` : "This week's winners are in")}</h3>
+        <p class="panel-copy">The Game Master has officially finished this week's challenge run. Heroes are celebrating below while the next faith quest gets ready.</p>
+      </div>
+      <span class="gm-pill">Week Finished</span>
+    </div>
+
+    <article class="announcement-message">
+      <strong>${escapeHtml(winner ? `${winner.name} takes the crown` : "Challenge week complete")}</strong>
+      <p class="panel-copy">${formatMultilineHtml(announcement.message || buildDefaultAnnouncementMessage(winner))}</p>
+    </article>
+
+    ${podiumEntries.length ? `
+      <div class="podium-grid ${podiumEntries.length >= 3 ? "full-podium" : ""}">
+        ${podiumEntries.map((entry) => {
+          const meta = getPodiumRankMeta(entry.rank);
+          return `
+            <article class="podium-slot rank-${entry.rank}">
+              <div class="podium-avatar-shell">
+                <span class="podium-ribbon">${escapeHtml(meta.label)}</span>
+                <span class="podium-burst">${escapeHtml(meta.burst)}</span>
+                <div class="avatar-stage podium" data-podium-rank="${entry.rank}"></div>
+                <strong class="podium-name">${escapeHtml(entry.name)}</strong>
+                <span class="summary-label">${escapeHtml(meta.caption)}</span>
+              </div>
+              <div class="podium-base">
+                <span class="summary-label">Score</span>
+                <strong>${entry.score}</strong>
+              </div>
+            </article>
+          `;
+        }).join("")}
+      </div>
+    ` : ""}
+  `;
+
+  elements.announcementSection.querySelectorAll("[data-podium-rank]").forEach((stage) => {
+    const rank = Number(stage.dataset.podiumRank);
+    const entry = (announcement.podium || []).find((item) => item.rank === rank);
+    if (entry) {
+      renderAvatarStage(stage, entry.profile);
+    }
+  });
+}
+
+function getPodiumDisplayEntries(podium) {
+  const entries = Array.isArray(podium) ? podium.slice(0, 3) : [];
+  if (entries.length >= 3) {
+    return [entries[1], entries[0], entries[2]];
+  }
+
+  return entries;
+}
+
+function getPodiumRankMeta(rank) {
+  if (rank === 1) {
+    return { label: "Champion", caption: "Celebrating at the center podium", burst: "Victory" };
+  }
+  if (rank === 2) {
+    return { label: "Second Place", caption: "Cheering from the silver step", burst: "Praise" };
+  }
+
+  return { label: "Third Place", caption: "Joining the podium celebration", burst: "Joy" };
+}
+
 function openGame(instanceId, weekId) {
   const user = getCurrentUser();
   if (!user) {
+    return;
+  }
+
+  if (isWeekClosed(weekId)) {
+    renderClosedWeekChallenge(getWeekAnnouncement(weekId));
     return;
   }
 
@@ -1180,6 +1285,34 @@ function renderLockedChallenge(result) {
         <strong class="result-score">${result.score} pts</strong>
         <span class="leaderboard-copy">${escapeHtml(result.detail || "Challenge completed.")}</span>
         <span class="hint-text">One completed run is kept as your final result for this scheduled game.</span>
+      </section>
+    </div>
+  `;
+}
+
+function renderClosedWeekChallenge(announcement) {
+  const winner = announcement && announcement.podium && announcement.podium[0] ? announcement.podium[0] : null;
+  const message = announcement && announcement.message
+    ? announcement.message
+    : buildDefaultAnnouncementMessage(winner);
+
+  activeGameContext = null;
+  elements.drawerTitle.textContent = "Week Finished";
+  elements.drawerBackdrop.classList.remove("hidden");
+  elements.gameDrawer.classList.remove("hidden");
+  elements.gmDrawer.classList.add("hidden");
+  elements.drawerBody.innerHTML = `
+    <div class="game-shell">
+      <section class="game-card">
+        <h4>This week's challenges are now closed</h4>
+        <p class="game-copy">${escapeHtml(winner ? `${winner.name} has already been announced as the current winner.` : "The Game Master has finished this week's challenge run.")}</p>
+      </section>
+
+      <section class="game-result">
+        <span class="result-pill">Winner Announcement</span>
+        <strong class="result-score">${escapeHtml(winner ? winner.name : "Week Complete")}</strong>
+        <span class="leaderboard-copy">${formatMultilineHtml(message)}</span>
+        <span class="hint-text">Visit the celebration podium on the home screen to see the heroes celebrating.</span>
       </section>
     </div>
   `;
@@ -1262,6 +1395,7 @@ function renderGameMasterPanel() {
   const currentSchedule = getWeekSchedule(currentWeekId);
   const nextSchedule = getWeekSchedule(nextWeekId);
   const board = getDisplayedLeaderboard(currentWeekId);
+  const currentAnnouncement = getWeekAnnouncement(currentWeekId);
   const playerCount = Object.keys(appState.users).length;
   const customTemplateCount = Object.keys(appState.customTemplates).length;
   const builtInTemplateCount = getBuiltInTemplates().length;
@@ -1291,6 +1425,37 @@ function renderGameMasterPanel() {
           <button class="secondary-button" id="resetWeekButton" type="button">Reset Current Week Results</button>
           <button class="leaderboard-refresh" id="logoutGameMasterButton" type="button">Log Out</button>
         </div>
+      </section>
+
+      <section class="gm-card">
+        <div class="gm-head">
+          <div>
+            <h4>Finish this week</h4>
+            <p class="gm-copy">Close the current week, announce the winner on a celebration podium, and edit the player-facing message whenever you need to.</p>
+          </div>
+          <span class="gm-pill">${currentAnnouncement && currentAnnouncement.closed ? "Announced" : "Open"}</span>
+        </div>
+
+        <form class="gm-login-form" id="finishWeekForm">
+          <label class="field-block">
+            <span>Winner announcement message</span>
+            <textarea id="winnerMessageInput" maxlength="260" placeholder="Celebrate the winner and encourage the players for next week." rows="4">${escapeHtml(getAnnouncementDraftMessage(currentWeekId, board))}</textarea>
+          </label>
+
+          <article class="empty-state">
+            <strong>${escapeHtml(board[0] ? `Current leader: ${board[0].name}` : "No winner yet")}</strong>
+            <span>${escapeHtml(board[0]
+              ? `${board[0].name} is currently leading with ${board[0].score} points. Finishing the week locks unfinished games and shows the podium on player screens.`
+              : "Wait for at least one player to score before finishing the current week and announcing the winner.")}</span>
+          </article>
+
+          <div class="gm-actions">
+            <button class="primary-button" type="submit">${currentAnnouncement && currentAnnouncement.closed ? "Update Winner Announcement" : "Finish This Week & Announce Winner"}</button>
+            ${currentAnnouncement && currentAnnouncement.closed
+              ? '<button class="secondary-button" id="reopenWeekButton" type="button">Reopen Current Week</button>'
+              : ""}
+          </div>
+        </form>
       </section>
 
       <section class="gm-card">
@@ -1507,6 +1672,7 @@ function renderGameMasterPanel() {
   `;
 
   document.getElementById("scheduleForm").addEventListener("submit", handleScheduleAdd);
+  document.getElementById("finishWeekForm").addEventListener("submit", handleFinishWeek);
   document.getElementById("customChallengeForm").addEventListener("submit", handleCustomChallengeCreate);
   document.getElementById("importChallengeForm").addEventListener("submit", handleChallengeImport);
   document.getElementById("customKindSelect").addEventListener("change", updateCustomChallengeHelp);
@@ -1514,6 +1680,10 @@ function renderGameMasterPanel() {
   document.getElementById("customWeekSelect").addEventListener("change", syncGameMasterDaySelectors);
   document.getElementById("resetWeekButton").addEventListener("click", resetCurrentWeekResults);
   document.getElementById("logoutGameMasterButton").addEventListener("click", logoutGameMaster);
+  const reopenWeekButton = document.getElementById("reopenWeekButton");
+  if (reopenWeekButton) {
+    reopenWeekButton.addEventListener("click", reopenCurrentWeekAnnouncement);
+  }
   updateCustomChallengeHelp();
   syncGameMasterDaySelectors();
 
@@ -1973,6 +2143,57 @@ async function deleteCustomTemplate(templateId) {
   openGameMaster();
 }
 
+async function handleFinishWeek(event) {
+  event.preventDefault();
+
+  const board = getDisplayedLeaderboard(currentWeekId);
+  if (!board.length) {
+    showGameMasterMessage("At least one player needs a score before you can announce this week's winner.", "finishWeekForm");
+    return;
+  }
+
+  const existingAnnouncement = getWeekAnnouncement(currentWeekId);
+  if (!existingAnnouncement || !existingAnnouncement.closed) {
+    const confirmed = window.confirm(`Finish this week's challenges, lock unfinished games, and announce ${board[0].name} as the current winner?`);
+    if (!confirmed) {
+      return;
+    }
+  }
+
+  const message = document.getElementById("winnerMessageInput").value;
+  const announcement = await buildWeekAnnouncement(currentWeekId, message, board);
+  appState.weekAnnouncements[currentWeekId] = announcement;
+  saveState();
+  await saveRemoteWeekAnnouncement(currentWeekId);
+  renderApp();
+  openGameMaster();
+  showGameMasterMessage(
+    existingAnnouncement && existingAnnouncement.closed
+      ? "Winner announcement updated."
+      : `${announcement.winnerName} has been announced on the celebration podium.`,
+    "finishWeekForm"
+  );
+}
+
+async function reopenCurrentWeekAnnouncement() {
+  const announcement = getWeekAnnouncement(currentWeekId);
+  if (!announcement || !announcement.closed) {
+    return;
+  }
+
+  const confirmed = window.confirm("Reopen the current week and let players continue unfinished challenges?");
+  if (!confirmed) {
+    return;
+  }
+
+  delete appState.weekAnnouncements[currentWeekId];
+  saveState();
+  await clearRemoteWeekAnnouncement(currentWeekId);
+  renderApp();
+  openGameMaster();
+  showGameMasterMessage("Current week reopened. Players can continue unfinished challenges.", "finishWeekForm");
+}
+
 async function resetCurrentWeekResults() {
   const confirmed = window.confirm("Reset all current week player results and clear the live leaderboard for this week?");
   if (!confirmed) {
@@ -1986,11 +2207,13 @@ async function resetCurrentWeekResults() {
   });
 
   remoteLeaderboard = [];
+  delete appState.weekAnnouncements[currentWeekId];
   saveState();
   await clearRemoteCurrentWeekResults();
+  await clearRemoteWeekAnnouncement(currentWeekId);
   renderApp();
   openGameMaster();
-  showGameMasterMessage("Current week results were fully reset.");
+  showGameMasterMessage("Current week results and winner announcement were fully reset.", "finishWeekForm");
 }
 
 function renderQuizGame() {
@@ -2267,6 +2490,11 @@ function handleWordSearchClick(row, col) {
 async function saveGameResult(instanceId, weekId, result) {
   const user = getCurrentUser();
   if (!user) {
+    return;
+  }
+
+  if (isWeekClosed(weekId)) {
+    renderClosedWeekChallenge(getWeekAnnouncement(weekId));
     return;
   }
 
@@ -2660,6 +2888,8 @@ function bindFirebaseBridge(firebase) {
   listenToRemoteCustomTemplates();
   listenToSchedule(currentWeekId);
   listenToSchedule(nextWeekId);
+  listenToWeekAnnouncement(currentWeekId);
+  listenToWeekAnnouncement(nextWeekId);
 }
 
 async function handleFirebaseAuthState(authUser) {
@@ -2691,6 +2921,8 @@ async function handleFirebaseAuthState(authUser) {
   listenToRemoteCustomTemplates();
   listenToSchedule(currentWeekId);
   listenToSchedule(nextWeekId);
+  listenToWeekAnnouncement(currentWeekId);
+  listenToWeekAnnouncement(nextWeekId);
   await loadRemoteProfile(authUser.uid);
   await loadRemoteWeekProgress(authUser.uid, currentWeekId);
 
@@ -2729,6 +2961,146 @@ function getDisplayedLeaderboard(weekId) {
   }
 
   return buildLeaderboard(weekId);
+}
+
+function getWeekAnnouncement(weekId) {
+  const raw = appState.weekAnnouncements[weekId];
+  return raw ? normalizeWeekAnnouncement(raw, weekId) : null;
+}
+
+function isWeekClosed(weekId) {
+  const announcement = getWeekAnnouncement(weekId);
+  return Boolean(announcement && announcement.closed);
+}
+
+function getAnnouncementDraftMessage(weekId, board) {
+  const announcement = getWeekAnnouncement(weekId);
+  if (announcement && announcement.message) {
+    return announcement.message;
+  }
+
+  const winner = board && board[0]
+    ? {
+      name: sanitizePodiumName(board[0].name || "This week's leader"),
+      score: Math.max(0, Number(board[0].score) || 0)
+    }
+    : null;
+
+  return buildDefaultAnnouncementMessage(winner);
+}
+
+function buildDefaultAnnouncementMessage(winner) {
+  if (!winner) {
+    return "This week's challenge run has been completed. Check the podium below and get ready for the next faith quest.";
+  }
+
+  return `${winner.name} has won this week's KKTK Weekly Challenges run with ${winner.score} points. Celebrate the podium heroes below and get ready for the next Bible challenge week.`;
+}
+
+function formatMultilineHtml(value) {
+  return escapeHtml(value).replace(/\n/g, "<br>");
+}
+
+function normalizeWeekAnnouncement(rawAnnouncement, weekId) {
+  const podium = Array.isArray(rawAnnouncement && rawAnnouncement.podium)
+    ? rawAnnouncement.podium.slice(0, 3).map((entry, index) => normalizePodiumEntry(entry, index))
+    : [];
+
+  const winner = podium[0] || null;
+  const message = sanitizeAnnouncementMessage(rawAnnouncement && rawAnnouncement.message ? rawAnnouncement.message : "");
+
+  return {
+    weekId: rawAnnouncement && rawAnnouncement.weekId ? rawAnnouncement.weekId : weekId,
+    closed: Boolean(rawAnnouncement && rawAnnouncement.closed),
+    message: message || buildDefaultAnnouncementMessage(winner),
+    winnerUserId: rawAnnouncement && rawAnnouncement.winnerUserId ? String(rawAnnouncement.winnerUserId) : winner ? winner.userId : "",
+    winnerName: sanitizePodiumName(rawAnnouncement && rawAnnouncement.winnerName ? rawAnnouncement.winnerName : winner ? winner.name : ""),
+    closedAt: rawAnnouncement && rawAnnouncement.closedAt ? String(rawAnnouncement.closedAt) : "",
+    podium
+  };
+}
+
+function normalizePodiumEntry(rawEntry, index) {
+  const rank = Math.max(1, Math.min(3, Number(rawEntry && rawEntry.rank) || index + 1));
+  const name = sanitizePodiumName(rawEntry && rawEntry.name ? rawEntry.name : `Player ${rank}`);
+  const fallbackProfile = createProfileDraft({ heroName: name });
+
+  return {
+    rank,
+    userId: rawEntry && rawEntry.userId ? String(rawEntry.userId) : "",
+    name,
+    score: Math.max(0, Number(rawEntry && rawEntry.score) || 0),
+    completedCount: Math.max(0, Number(rawEntry && rawEntry.completedCount) || 0),
+    note: sanitizeLongText(rawEntry && rawEntry.note ? rawEntry.note : ""),
+    profile: rawEntry && rawEntry.profile ? createProfileDraft(rawEntry.profile) : fallbackProfile
+  };
+}
+
+async function buildWeekAnnouncement(weekId, rawMessage, board) {
+  const podiumBoard = Array.isArray(board) ? board.slice(0, 3) : [];
+  if (!podiumBoard.length) {
+    throw new Error("At least one score is needed before you can finish the week.");
+  }
+
+  const existingAnnouncement = getWeekAnnouncement(weekId);
+  const podium = await Promise.all(podiumBoard.map(async (entry, index) => {
+    const name = sanitizePodiumName(entry.name || `Player ${index + 1}`);
+    const profile = await fetchAnnouncementProfile(entry.userId, name);
+    return {
+      rank: index + 1,
+      userId: String(entry.userId || ""),
+      name,
+      score: Math.max(0, Number(entry.score) || 0),
+      completedCount: Math.max(0, Number(entry.completedCount) || 0),
+      note: sanitizeLongText(entry.note || ""),
+      profile
+    };
+  }));
+
+  const winner = podium[0];
+  return normalizeWeekAnnouncement({
+    weekId,
+    closed: true,
+    message: sanitizeAnnouncementMessage(rawMessage) || buildDefaultAnnouncementMessage(winner),
+    winnerUserId: winner ? winner.userId : "",
+    winnerName: winner ? winner.name : "",
+    closedAt: existingAnnouncement && existingAnnouncement.closedAt ? existingAnnouncement.closedAt : new Date().toISOString(),
+    podium
+  }, weekId);
+}
+
+async function fetchAnnouncementProfile(userId, fallbackName) {
+  const localUser = userId ? appState.users[userId] : null;
+  if (localUser && localUser.profile) {
+    const localProfile = createProfileDraft(localUser.profile);
+    if (!localProfile.heroName) {
+      localProfile.heroName = fallbackName;
+    }
+    return localProfile;
+  }
+
+  const firebase = getFirebaseAPI();
+  if (firebase && userId) {
+    try {
+      const snapshot = await firebase.getDoc(firebase.doc(firebase.db, "profiles", userId));
+      if (snapshot.exists()) {
+        const data = snapshot.data();
+        if (data && data.profile) {
+          const remoteProfile = createProfileDraft(data.profile);
+          if (!remoteProfile.heroName) {
+            remoteProfile.heroName = fallbackName;
+          }
+          return remoteProfile;
+        }
+      }
+    } catch (error) {
+      console.error("Announcement profile fetch failed", error);
+    }
+  }
+
+  const fallbackProfile = createProfileDraft({ heroName: fallbackName });
+  fallbackProfile.heroName = fallbackName;
+  return fallbackProfile;
 }
 
 function listenToLeaderboard() {
@@ -2890,6 +3262,82 @@ function listenToSchedule(weekId) {
     },
     (error) => {
       console.error("Schedule listen failed", error);
+    }
+  );
+}
+
+async function saveRemoteWeekAnnouncement(weekId) {
+  const firebase = getFirebaseAPI();
+  const announcement = getWeekAnnouncement(weekId);
+  if (!firebase || !announcement) {
+    return;
+  }
+
+  try {
+    await firebase.setDoc(
+      firebase.doc(firebase.db, "weekAnnouncements", weekId),
+      announcement,
+      { merge: true }
+    );
+  } catch (error) {
+    console.error("Week announcement save failed", error);
+  }
+}
+
+async function clearRemoteWeekAnnouncement(weekId) {
+  const firebase = getFirebaseAPI();
+  if (!firebase) {
+    return;
+  }
+
+  try {
+    await firebase.deleteDoc(firebase.doc(firebase.db, "weekAnnouncements", weekId));
+  } catch (error) {
+    console.error("Week announcement clear failed", error);
+  }
+}
+
+function listenToWeekAnnouncement(weekId) {
+  const firebase = getFirebaseAPI();
+  if (!firebase) {
+    return;
+  }
+
+  if (announcementUnsubscribers[weekId]) {
+    announcementUnsubscribers[weekId]();
+  }
+
+  announcementUnsubscribers[weekId] = firebase.onSnapshot(
+    firebase.doc(firebase.db, "weekAnnouncements", weekId),
+    (snapshot) => {
+      if (!snapshot.exists()) {
+        if (appState.weekAnnouncements[weekId]) {
+          delete appState.weekAnnouncements[weekId];
+          saveState();
+          renderApp();
+
+          if (appState.admin.authenticated) {
+            renderGameMasterPanel();
+          }
+        }
+        return;
+      }
+
+      appState.weekAnnouncements[weekId] = normalizeWeekAnnouncement(snapshot.data(), weekId);
+      saveState();
+
+      if (activeGameContext && activeGameContext.weekId === weekId && appState.weekAnnouncements[weekId].closed) {
+        renderClosedWeekChallenge(appState.weekAnnouncements[weekId]);
+      }
+
+      renderApp();
+
+      if (appState.admin.authenticated) {
+        renderGameMasterPanel();
+      }
+    },
+    (error) => {
+      console.error("Week announcement listen failed", error);
     }
   );
 }
@@ -3371,6 +3819,7 @@ function loadState() {
       currentUserId: parsed.currentUserId || null,
       users: parsed.users || {},
       schedule: parsed.version < STORAGE_VERSION ? {} : (parsed.schedule || {}),
+      weekAnnouncements: parsed.weekAnnouncements || {},
       customTemplates: parsed.customTemplates || {},
       remoteCustomTemplateIds: parsed.remoteCustomTemplateIds || [],
       archivedBuiltInTemplateIds: parsed.archivedBuiltInTemplateIds || [],
@@ -3387,6 +3836,7 @@ function createDefaultState() {
     currentUserId: null,
     users: {},
     schedule: {},
+    weekAnnouncements: {},
     customTemplates: {},
     remoteCustomTemplateIds: [],
     archivedBuiltInTemplateIds: [],
@@ -3400,6 +3850,7 @@ function saveState() {
     currentUserId: appState.currentUserId,
     users: appState.users,
     schedule: appState.schedule,
+    weekAnnouncements: appState.weekAnnouncements,
     customTemplates: appState.customTemplates,
     remoteCustomTemplateIds: appState.remoteCustomTemplateIds,
     archivedBuiltInTemplateIds: appState.archivedBuiltInTemplateIds
@@ -3645,6 +4096,20 @@ function sanitizeLongText(rawValue) {
   return String(rawValue).replace(/\s+/g, " ").replace(/[<>]/g, "").trim().slice(0, 180);
 }
 
+function sanitizeAnnouncementMessage(rawValue) {
+  return String(rawValue || "")
+    .replace(/\r/g, "")
+    .split("\n")
+    .map((line) => line.replace(/\s+/g, " ").replace(/[<>]/g, "").trim())
+    .filter(Boolean)
+    .join("\n")
+    .slice(0, 260);
+}
+
+function sanitizePodiumName(rawValue) {
+  return String(rawValue || "").replace(/\s+/g, " ").replace(/[<>]/g, "").trim().slice(0, 24);
+}
+
 function sanitizeLetters(rawValue) {
   return String(rawValue).toUpperCase().replace(/[^A-Z]/g, "");
 }
@@ -3656,18 +4121,18 @@ function splitNonEmptyLines(content) {
     .filter(Boolean);
 }
 
-function showGameMasterMessage(message) {
-  const scheduleForm = document.getElementById("scheduleForm");
-  if (!scheduleForm) {
+function showGameMasterMessage(message, anchorId = "scheduleForm") {
+  const anchor = document.getElementById(anchorId) || document.getElementById("scheduleForm");
+  if (!anchor) {
     return;
   }
 
-  scheduleForm.parentElement.querySelectorAll(".message-card").forEach((card) => card.remove());
+  anchor.parentElement.querySelectorAll(".message-card").forEach((card) => card.remove());
 
   const card = document.createElement("article");
   card.className = "empty-state message-card";
   card.innerHTML = `<strong>Game Master notice</strong><span>${escapeHtml(message)}</span>`;
-  scheduleForm.parentElement.insertBefore(card, scheduleForm);
+  anchor.parentElement.insertBefore(card, anchor);
 }
 
 function capitalize(value) {

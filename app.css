@@ -412,6 +412,25 @@ button {
   padding: 1.35rem;
 }
 
+.celebration-panel {
+  position: relative;
+  overflow: hidden;
+  background:
+    radial-gradient(circle at top, rgba(255, 255, 255, 0.96), rgba(255, 247, 231, 0.92)),
+    linear-gradient(135deg, rgba(248, 208, 107, 0.22), rgba(129, 201, 215, 0.18), rgba(244, 125, 107, 0.18));
+}
+
+.celebration-panel::after {
+  content: "";
+  position: absolute;
+  inset: auto -8% -14% auto;
+  width: 260px;
+  height: 260px;
+  border-radius: 50%;
+  background: radial-gradient(circle, rgba(246, 163, 93, 0.18), rgba(246, 163, 93, 0));
+  pointer-events: none;
+}
+
 .panel-heading {
   display: flex;
   justify-content: space-between;
@@ -596,6 +615,143 @@ button {
   margin: 0;
   color: var(--text-soft);
   font-size: 0.92rem;
+}
+
+.celebration-head {
+  display: flex;
+  justify-content: space-between;
+  gap: 1rem;
+  align-items: end;
+}
+
+.celebration-copy {
+  max-width: 780px;
+}
+
+.announcement-message {
+  margin-top: 1rem;
+  padding: 1rem 1.1rem;
+  border-radius: 24px;
+  background: rgba(255, 255, 255, 0.78);
+  border: 1px solid rgba(97, 63, 30, 0.08);
+}
+
+.announcement-message strong {
+  display: block;
+  margin-bottom: 0.35rem;
+}
+
+.announcement-message p {
+  margin: 0;
+}
+
+.podium-grid {
+  margin-top: 1.25rem;
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+  gap: 1rem;
+  align-items: end;
+}
+
+.podium-grid.full-podium {
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+}
+
+.podium-slot {
+  display: grid;
+  gap: 0.75rem;
+  text-align: center;
+}
+
+.podium-avatar-shell,
+.podium-base {
+  border-radius: 26px;
+  border: 1px solid rgba(97, 63, 30, 0.08);
+  box-shadow: var(--shadow-soft);
+}
+
+.podium-avatar-shell {
+  position: relative;
+  padding: 1rem;
+  background: rgba(255, 255, 255, 0.86);
+}
+
+.podium-avatar-shell .avatar-stage {
+  min-height: 220px;
+  padding-top: 1.4rem;
+}
+
+.avatar-stage.podium .pixel-avatar-canvas {
+  width: min(180px, 100%);
+}
+
+.podium-name {
+  display: block;
+  margin-top: 0.65rem;
+  font-size: 1.1rem;
+}
+
+.podium-ribbon,
+.podium-burst {
+  position: absolute;
+  top: 0.9rem;
+  padding: 0.38rem 0.72rem;
+  border-radius: 999px;
+  font-size: 0.76rem;
+  font-weight: 800;
+  background: rgba(255, 250, 243, 0.96);
+  border: 1px solid rgba(97, 63, 30, 0.08);
+}
+
+.podium-ribbon {
+  left: 0.9rem;
+}
+
+.podium-burst {
+  right: 0.9rem;
+}
+
+.podium-base {
+  padding: 1rem 0.9rem;
+  display: grid;
+  align-content: center;
+  justify-items: center;
+  background: linear-gradient(180deg, rgba(255, 243, 222, 0.96), rgba(249, 220, 168, 0.9));
+}
+
+.podium-base strong {
+  font-size: 1.7rem;
+}
+
+.podium-slot.rank-1 .podium-base {
+  min-height: 182px;
+}
+
+.podium-slot.rank-2 .podium-base {
+  min-height: 142px;
+}
+
+.podium-slot.rank-3 .podium-base {
+  min-height: 122px;
+}
+
+.podium-slot.rank-1 .podium-avatar-shell {
+  animation: podium-bob 2.8s ease-in-out infinite;
+}
+
+.podium-slot.rank-2 .podium-avatar-shell,
+.podium-slot.rank-3 .podium-avatar-shell {
+  animation: podium-bob 3.4s ease-in-out infinite;
+}
+
+@keyframes podium-bob {
+  0%,
+  100% {
+    transform: translateY(0);
+  }
+  50% {
+    transform: translateY(-8px);
+  }
 }
 
 .leaderboard-item,
@@ -1035,7 +1191,8 @@ button {
   }
 
   .panel-heading,
-  .topbar {
+  .topbar,
+  .celebration-head {
     align-items: start;
     flex-direction: column;
   }
@@ -1049,6 +1206,10 @@ button {
   .modal-actions > *,
   .gm-actions > * {
     flex: 1 1 180px;
+  }
+
+  .podium-grid.full-podium {
+    grid-template-columns: 1fr;
   }
 
   .topbar-actions {
@@ -1083,6 +1244,10 @@ button {
   .avatar-stage.builder,
   .auth-stage {
     min-height: 280px;
+  }
+
+  .podium-avatar-shell .avatar-stage {
+    min-height: 180px;
   }
 
   .pixel-avatar-canvas {
