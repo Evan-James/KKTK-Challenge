@@ -376,12 +376,16 @@ const builderProfile = createProfileDraft(null);
 let activeGameContext = null;
 let activeCrossword = null;
 let activeWordSearch = null;
+let remoteLeaderboard = [];
+let firebaseBridgeBound = false;
+let leaderboardUnsubscribe = null;
 
 ensureScheduleWeek(currentWeekId);
 ensureScheduleWeek(nextWeekId);
 syncBuilderFromCurrentUser();
 bindEvents();
 renderApp();
+setupFirebaseIntegration();
 
 function bindEvents() {
   elements.loginForm.addEventListener("submit", handlePlayerLogin);
@@ -430,7 +434,7 @@ function renderApp() {
   syncBuilderFromCurrentUser();
 
   const schedule = getWeekSchedule(currentWeekId);
-  const board = buildLeaderboard(currentWeekId);
+  const board = getDisplayedLeaderboard(currentWeekId);
   const totalScore = getPlayerWeekScore(user, currentWeekId);
   const completed = getCompletedCount(user, currentWeekId, schedule);
   const level = getLevelForScore(totalScore);
@@ -476,8 +480,13 @@ function renderApp() {
   }
 }
 
-function handlePlayerLogin(event) {
+async function handlePlayerLogin(event) {
   event.preventDefault();
+
+  const firebase = requireFirebaseAPI();
+  if (!firebase) {
+    return;
+  }
 
   const username = sanitizeUsername(document.getElementById("loginUsernameInput").value);
   const password = document.getElementById("loginPasswordInput").value;
@@ -487,64 +496,60 @@ function handlePlayerLogin(event) {
     return;
   }
 
-  const user = Object.values(appState.users).find((candidate) => candidate.username === username);
-  if (!user || user.password !== password) {
-    setAuthMessage("Player login failed. Check the username and password.");
+  try {
+    const email = `${username}@kktk.com`;
+    await firebase.signInWithEmailAndPassword(firebase.auth, email, password);
+  } catch (error) {
+    setAuthMessage(getFirebaseAuthMessage(error, "Player login failed. Check the username and password."));
+  }
+}
+
+async function handlePlayerRegister(event) {
+  event.preventDefault();
+
+  const firebase = requireFirebaseAPI();
+  if (!firebase) {
     return;
   }
 
-  appState.currentUserId = user.id;
-  saveState();
-  syncBuilderFromCurrentUser();
-  clearAuthForms();
-  setAuthMessage("");
-  renderApp();
-}
-
-function handlePlayerRegister(event) {
-  event.preventDefault();
-
   const username = sanitizeUsername(document.getElementById("registerUsernameInput").value);
-  const password = document.getElementById("registerPasswordInput").value.trim();
+  const password = document.getElementById("registerPasswordInput").value;
 
   if (!username || username.length < 3) {
     setAuthMessage("Choose a player username with at least 3 letters or numbers.");
     return;
   }
 
-  if (password.length < 4) {
-    setAuthMessage("Choose a password with at least 4 characters.");
+  if (password.length < 6) {
+    setAuthMessage("Choose a password with at least 6 characters.");
     return;
   }
 
-  const existing = Object.values(appState.users).some((candidate) => candidate.username === username);
-  if (existing) {
-    setAuthMessage("That username is already in use on this device.");
-    return;
+  try {
+    const email = `${username}@kktk.com`;
+    await firebase.createUserWithEmailAndPassword(firebase.auth, email, password);
+    setAuthMessage("Player account created. Build your hero to continue.");
+  } catch (error) {
+    setAuthMessage(getFirebaseAuthMessage(error, "That username is already in use."));
   }
-
-  const userId = `player-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 7)}`;
-  appState.users[userId] = {
-    id: userId,
-    username,
-    password,
-    profile: null,
-    weeks: {}
-  };
-  appState.currentUserId = userId;
-  saveState();
-  syncBuilderFromCurrentUser();
-  clearAuthForms();
-  setAuthMessage("Player account created. Build your hero to continue.");
-  renderApp();
-  openProfileModal(false);
 }
 
-function logoutPlayer() {
-  appState.currentUserId = null;
-  saveState();
+async function logoutPlayer() {
   closeDrawers();
   closeProfileModal();
+
+  const firebase = getFirebaseAPI();
+  if (firebase && firebase.auth.currentUser) {
+    try {
+      await firebase.signOut(firebase.auth);
+      return;
+    } catch (error) {
+      console.error("Firebase logout failed", error);
+    }
+  }
+
+  appState.currentUserId = null;
+  saveState();
   syncBuilderFromCurrentUser();
   renderApp();
 }
@@ -669,7 +674,7 @@ function handleCancelProfile() {
   closeProfileModal();
 }
 
-function handleProfileSubmit(event) {
+async function handleProfileSubmit(event) {
   event.preventDefault();
 
   const user = getCurrentUser();
@@ -695,6 +700,7 @@ function handleProfileSubmit(event) {
   };
 
   saveState();
+  await saveRemoteProfile(user);
   closeProfileModal();
   renderApp();
 }
@@ -945,7 +951,7 @@ function logoutGameMaster() {
 function renderGameMasterPanel() {
   const currentSchedule = getWeekSchedule(currentWeekId);
   const nextSchedule = getWeekSchedule(nextWeekId);
-  const board = buildLeaderboard(currentWeekId);
+  const board = getDisplayedLeaderboard(currentWeekId);
   const playerCount = Object.keys(appState.users).length;
   const customTemplateCount = Object.keys(appState.customTemplates).length;
 
@@ -1561,7 +1567,7 @@ function renderQuizGame() {
 
     const perQuestion = Math.round((template.maxScore - 100) / template.questions.length);
     const score = Math.min(template.maxScore, correct * perQuestion + (correct === template.questions.length ? 100 : 0));
-    saveGameResult(activeGameContext.challenge.instanceId, activeGameContext.weekId, {
+    void saveGameResult(activeGameContext.challenge.instanceId, activeGameContext.weekId, {
       completed: true,
       score,
       stars: getStars(score, template.maxScore),
@@ -1624,7 +1630,7 @@ function renderCrosswordGame() {
     const correctCount = activeCells.filter((cell) => cell.value === cell.answer).length;
     const score = Math.round((correctCount / activeCells.length) * template.maxScore);
 
-    saveGameResult(activeGameContext.challenge.instanceId, activeGameContext.weekId, {
+    void saveGameResult(activeGameContext.challenge.instanceId, activeGameContext.weekId, {
       completed: true,
       score,
       stars: getStars(score, template.maxScore),
@@ -1702,7 +1708,7 @@ function renderWordSearchGame() {
     }
 
     const score = Math.round((activeWordSearch.foundWords.size / activeWordSearch.words.length) * activeGameContext.template.maxScore);
-    saveGameResult(activeGameContext.challenge.instanceId, activeGameContext.weekId, {
+    void saveGameResult(activeGameContext.challenge.instanceId, activeGameContext.weekId, {
       completed: true,
       score,
       stars: getStars(score, activeGameContext.template.maxScore),
@@ -1777,7 +1783,7 @@ function handleWordSearchClick(row, col) {
   renderWordSearchBoard();
 }
 
-function saveGameResult(instanceId, weekId, result) {
+async function saveGameResult(instanceId, weekId, result) {
   const user = getCurrentUser();
   if (!user) {
     return;
@@ -1791,6 +1797,8 @@ function saveGameResult(instanceId, weekId, result) {
 
   week.results[instanceId] = result;
   saveState();
+  await saveRemoteWeekProgress(user, weekId);
+  await saveRemoteLeaderboardScore(user, weekId);
   renderApp();
   renderLockedChallenge(result);
 }
@@ -2040,6 +2048,255 @@ function buildLeaderboard(weekId) {
       isCurrent: user.id === appState.currentUserId
     };
   }).filter(Boolean).sort((left, right) => right.score - left.score || right.completedCount - left.completedCount || left.name.localeCompare(right.name));
+}
+
+function setupFirebaseIntegration() {
+  if (window.firebaseAPI) {
+    bindFirebaseBridge(window.firebaseAPI);
+  }
+
+  window.addEventListener("firebase-ready", () => {
+    bindFirebaseBridge(window.firebaseAPI);
+  }, { once: true });
+}
+
+function bindFirebaseBridge(firebase) {
+  if (firebaseBridgeBound || !firebase) {
+    return;
+  }
+
+  firebaseBridgeBound = true;
+  if (!firebase.ready) {
+    console.warn(firebase.error || "Firebase is not configured yet.");
+    return;
+  }
+
+  firebase.onAuthStateChanged(firebase.auth, async (authUser) => {
+    await handleFirebaseAuthState(authUser);
+  });
+
+  listenToLeaderboard();
+}
+
+async function handleFirebaseAuthState(authUser) {
+  if (!authUser) {
+    appState.currentUserId = null;
+    saveState();
+    closeDrawers();
+    closeProfileModal();
+    syncBuilderFromCurrentUser();
+    renderApp();
+    return;
+  }
+
+  const username = getAuthUsername(authUser);
+  if (!appState.users[authUser.uid]) {
+    appState.users[authUser.uid] = {
+      id: authUser.uid,
+      username,
+      password: "",
+      profile: null,
+      weeks: {}
+    };
+  }
+
+  appState.users[authUser.uid].username = username;
+  appState.currentUserId = authUser.uid;
+
+  await loadRemoteProfile(authUser.uid);
+  await loadRemoteWeekProgress(authUser.uid, currentWeekId);
+
+  saveState();
+  clearAuthForms();
+  setAuthMessage("");
+  syncBuilderFromCurrentUser();
+  renderApp();
+}
+
+function getFirebaseAPI() {
+  return window.firebaseAPI && window.firebaseAPI.ready ? window.firebaseAPI : null;
+}
+
+function requireFirebaseAPI() {
+  const firebase = getFirebaseAPI();
+  if (firebase) {
+    return firebase;
+  }
+
+  setAuthMessage(window.firebaseAPI?.error || "Add your Firebase project config in index.html to enable online login.");
+  return null;
+}
+
+function getAuthUsername(authUser) {
+  const localPart = String(authUser?.email || "")
+    .split("@")[0]
+    .trim();
+
+  return sanitizeUsername(localPart || String(authUser?.uid || "").slice(0, 12));
+}
+
+function getDisplayedLeaderboard(weekId) {
+  if (getFirebaseAPI()) {
+    return remoteLeaderboard;
+  }
+
+  return buildLeaderboard(weekId);
+}
+
+function listenToLeaderboard() {
+  const firebase = getFirebaseAPI();
+  if (!firebase) {
+    return;
+  }
+
+  if (leaderboardUnsubscribe) {
+    leaderboardUnsubscribe();
+  }
+
+  const leaderboardQuery = firebase.query(
+    firebase.collection(firebase.db, "leaderboards", currentWeekId, "scores"),
+    firebase.orderBy("score", "desc")
+  );
+
+  leaderboardUnsubscribe = firebase.onSnapshot(leaderboardQuery, (snapshot) => {
+    remoteLeaderboard = snapshot.docs.map((entry) => {
+      const data = entry.data();
+      return {
+        userId: data.playerId,
+        name: data.playerName,
+        score: data.score || 0,
+        completedCount: data.completedCount || 0,
+        note: data.note || "Online player",
+        isCurrent: data.playerId === firebase.auth.currentUser?.uid
+      };
+    });
+
+    renderApp();
+  }, (error) => {
+    console.error("Leaderboard listener failed", error);
+  });
+}
+
+async function loadRemoteProfile(userId) {
+  const firebase = getFirebaseAPI();
+  const user = appState.users[userId];
+  if (!firebase || !user) {
+    return;
+  }
+
+  try {
+    const snapshot = await firebase.getDoc(firebase.doc(firebase.db, "profiles", userId));
+    if (!snapshot.exists()) {
+      return;
+    }
+
+    const data = snapshot.data();
+    if (data.profile) {
+      user.profile = createProfileDraft(data.profile);
+    }
+
+    if (data.username) {
+      user.username = sanitizeUsername(data.username) || user.username;
+    }
+  } catch (error) {
+    console.error("Profile sync failed", error);
+  }
+}
+
+async function saveRemoteProfile(user) {
+  const firebase = getFirebaseAPI();
+  if (!firebase || !user || firebase.auth.currentUser?.uid !== user.id || !user.profile) {
+    return;
+  }
+
+  try {
+    await firebase.setDoc(firebase.doc(firebase.db, "profiles", user.id), {
+      username: user.username,
+      profile: user.profile
+    }, { merge: true });
+  } catch (error) {
+    console.error("Profile save failed", error);
+  }
+}
+
+async function loadRemoteWeekProgress(userId, weekId) {
+  const firebase = getFirebaseAPI();
+  const user = appState.users[userId];
+  if (!firebase || !user) {
+    return;
+  }
+
+  try {
+    const snapshot = await firebase.getDoc(firebase.doc(firebase.db, "progress", `${userId}_${weekId}`));
+    if (!snapshot.exists()) {
+      return;
+    }
+
+    const data = snapshot.data();
+    const week = ensureUserWeek(user, weekId);
+    week.results = data.results || {};
+  } catch (error) {
+    console.error("Progress sync failed", error);
+  }
+}
+
+async function saveRemoteWeekProgress(user, weekId) {
+  const firebase = getFirebaseAPI();
+  if (!firebase || !user || firebase.auth.currentUser?.uid !== user.id) {
+    return;
+  }
+
+  try {
+    await firebase.setDoc(firebase.doc(firebase.db, "progress", `${user.id}_${weekId}`), {
+      userId: user.id,
+      weekId,
+      results: ensureUserWeek(user, weekId).results
+    }, { merge: true });
+  } catch (error) {
+    console.error("Progress save failed", error);
+  }
+}
+
+async function saveRemoteLeaderboardScore(user, weekId) {
+  const firebase = getFirebaseAPI();
+  if (!firebase || !user || firebase.auth.currentUser?.uid !== user.id) {
+    return;
+  }
+
+  const schedule = getWeekSchedule(weekId);
+  const completedCount = getCompletedCount(user, weekId, schedule);
+  const totalScore = getPlayerWeekScore(user, weekId);
+
+  try {
+    await firebase.setDoc(firebase.doc(firebase.db, "leaderboards", weekId, "scores", user.id), {
+      playerId: user.id,
+      playerName: user.profile?.heroName || user.username,
+      score: totalScore,
+      completedCount,
+      note: `@${user.username} | ${completedCount}/${schedule.length} cleared`
+    }, { merge: true });
+  } catch (error) {
+    console.error("Leaderboard save failed", error);
+  }
+}
+
+function getFirebaseAuthMessage(error, fallback) {
+  const code = String(error?.code || "");
+
+  if (code === "auth/email-already-in-use") {
+    return "That username is already registered online.";
+  }
+  if (code === "auth/invalid-credential" || code === "auth/wrong-password" || code === "auth/user-not-found") {
+    return "Player login failed. Check the username and password.";
+  }
+  if (code === "auth/weak-password") {
+    return "Choose a stronger password with at least 6 characters.";
+  }
+  if (code === "auth/network-request-failed") {
+    return "Firebase could not be reached. Check your internet connection and try again.";
+  }
+
+  return fallback;
 }
 
 function getGrade(score, maxScore) {

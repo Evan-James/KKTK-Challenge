@@ -288,5 +288,67 @@
   </aside>
 
   <script src="app.js"></script>
+  <script type="module">
+    import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-app.js";
+    import {
+      getAuth,
+      createUserWithEmailAndPassword,
+      signInWithEmailAndPassword,
+      onAuthStateChanged,
+      signOut
+    } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-auth.js";
+    import {
+      getFirestore,
+      collection,
+      addDoc,
+      query,
+      orderBy,
+      onSnapshot,
+      doc,
+      getDoc,
+      setDoc
+    } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js";
+
+    const firebaseConfig = {
+      apiKey: "PASTE_YOURS",
+      authDomain: "PASTE_YOURS",
+      projectId: "PASTE_YOURS"
+    };
+
+    const hasPlaceholderConfig = Object.values(firebaseConfig).some((value) => String(value).startsWith("PASTE_"));
+
+    if (hasPlaceholderConfig) {
+      window.firebaseAPI = {
+        ready: false,
+        error: "Add your Firebase project config in index.html before using online login."
+      };
+      window.dispatchEvent(new Event("firebase-ready"));
+    } else {
+      const app = initializeApp(firebaseConfig);
+      const auth = getAuth(app);
+      const db = getFirestore(app);
+
+      window.firebaseAPI = {
+        ready: true,
+        app,
+        auth,
+        db,
+        createUserWithEmailAndPassword,
+        signInWithEmailAndPassword,
+        onAuthStateChanged,
+        signOut,
+        collection,
+        addDoc,
+        query,
+        orderBy,
+        onSnapshot,
+        doc,
+        getDoc,
+        setDoc
+      };
+
+      window.dispatchEvent(new Event("firebase-ready"));
+    }
+  </script>
 </body>
 </html>
