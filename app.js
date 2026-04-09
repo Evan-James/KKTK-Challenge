@@ -645,6 +645,7 @@ let remoteLeaderboard = [];
 let firebaseBridgeBound = false;
 let leaderboardUnsubscribe = null;
 const scheduleUnsubscribers = {};
+let customTemplateUnsubscribe = null;
 
 ensureScheduleWeek(currentWeekId);
 ensureScheduleWeek(nextWeekId);
@@ -1800,6 +1801,7 @@ async function handleCustomChallengeCreate(event) {
 
     appState.customTemplates[template.id] = template;
     saveState();
+    await saveRemoteCustomTemplate(template);
 
     if (weekId) {
       await addScheduledChallenge(template.id, weekId, template.title, true);
@@ -1824,7 +1826,7 @@ function handleChallengeImport(event) {
   }
 
   const reader = new FileReader();
-  reader.onload = () => {
+  reader.onload = async () => {
     try {
       const parsed = JSON.parse(String(reader.result));
       const rawTemplates = Array.isArray(parsed) ? parsed : (Array.isArray(parsed.templates) ? parsed.templates : [parsed]);
@@ -1833,12 +1835,14 @@ function handleChallengeImport(event) {
         throw new Error("No templates were found in that file.");
       }
 
-      rawTemplates.forEach((rawTemplate) => {
+      const importedTemplates = rawTemplates.map((rawTemplate) => {
         const template = normalizeImportedTemplate(rawTemplate);
         appState.customTemplates[template.id] = template;
+        return template;
       });
 
       saveState();
+      await Promise.all(importedTemplates.map((template) => saveRemoteCustomTemplate(template)));
       renderApp();
       openGameMaster();
     } catch (error) {
@@ -1892,10 +1896,14 @@ async function removeScheduledChallenge(weekId, instanceId) {
   openGameMaster();
 }
 
-function deleteCustomTemplate(templateId) {
+async function deleteCustomTemplate(templateId) {
   if (!isCustomTemplate(templateId)) {
     return;
   }
+
+  const affectedWeekIds = Object.keys(appState.schedule).filter((weekId) =>
+    appState.schedule[weekId].some((challenge) => challenge.templateId === templateId)
+  );
 
   delete appState.customTemplates[templateId];
 
@@ -1917,6 +1925,8 @@ function deleteCustomTemplate(templateId) {
   });
 
   saveState();
+  await Promise.all(affectedWeekIds.map((weekId) => saveRemoteSchedule(weekId)));
+  await deleteRemoteCustomTemplate(templateId);
   renderApp();
   openGameMaster();
 }
@@ -2497,6 +2507,7 @@ function bindFirebaseBridge(firebase) {
   });
 
   listenToLeaderboard();
+  listenToRemoteCustomTemplates();
   listenToSchedule(currentWeekId);
   listenToSchedule(nextWeekId);
 }
@@ -2526,6 +2537,10 @@ async function handleFirebaseAuthState(authUser) {
   appState.users[authUser.uid].username = username;
   appState.currentUserId = authUser.uid;
 
+  listenToLeaderboard();
+  listenToRemoteCustomTemplates();
+  listenToSchedule(currentWeekId);
+  listenToSchedule(nextWeekId);
   await loadRemoteProfile(authUser.uid);
   await loadRemoteWeekProgress(authUser.uid, currentWeekId);
 
@@ -2600,6 +2615,53 @@ function listenToLeaderboard() {
   });
 }
 
+function listenToRemoteCustomTemplates() {
+  const firebase = getFirebaseAPI();
+  if (!firebase) {
+    return;
+  }
+
+  if (customTemplateUnsubscribe) {
+    customTemplateUnsubscribe();
+  }
+
+  customTemplateUnsubscribe = firebase.onSnapshot(
+    firebase.collection(firebase.db, "customTemplates"),
+    (snapshot) => {
+      const nextTemplates = {};
+
+      snapshot.forEach((docSnapshot) => {
+        try {
+          const rawTemplate = docSnapshot.data();
+          const template = normalizeTemplate({
+            ...rawTemplate,
+            id: docSnapshot.id
+          }, false);
+          nextTemplates[template.id] = template;
+        } catch (error) {
+          console.error("Custom template normalize failed", error);
+        }
+      });
+
+      (appState.remoteCustomTemplateIds || []).forEach((templateId) => {
+        delete appState.customTemplates[templateId];
+      });
+
+      Object.assign(appState.customTemplates, nextTemplates);
+      appState.remoteCustomTemplateIds = Object.keys(nextTemplates);
+      saveState();
+      renderApp();
+
+      if (appState.admin.authenticated) {
+        renderGameMasterPanel();
+      }
+    },
+    (error) => {
+      console.error("Custom template listen failed", error);
+    }
+  );
+}
+
 async function saveRemoteSchedule(weekId) {
   const firebase = getFirebaseAPI();
   if (!firebase) {
@@ -2617,6 +2679,36 @@ async function saveRemoteSchedule(weekId) {
     );
   } catch (error) {
     console.error("Schedule save failed", error);
+  }
+}
+
+async function saveRemoteCustomTemplate(template) {
+  const firebase = getFirebaseAPI();
+  if (!firebase || !template) {
+    return;
+  }
+
+  try {
+    await firebase.setDoc(
+      firebase.doc(firebase.db, "customTemplates", template.id),
+      template,
+      { merge: true }
+    );
+  } catch (error) {
+    console.error("Custom template save failed", error);
+  }
+}
+
+async function deleteRemoteCustomTemplate(templateId) {
+  const firebase = getFirebaseAPI();
+  if (!firebase) {
+    return;
+  }
+
+  try {
+    await firebase.deleteDoc(firebase.doc(firebase.db, "customTemplates", templateId));
+  } catch (error) {
+    console.error("Custom template delete failed", error);
   }
 }
 
@@ -3103,6 +3195,7 @@ function loadState() {
       users: parsed.users || {},
       schedule: parsed.version < STORAGE_VERSION ? {} : (parsed.schedule || {}),
       customTemplates: parsed.customTemplates || {},
+      remoteCustomTemplateIds: parsed.remoteCustomTemplateIds || [],
       archivedBuiltInTemplateIds: parsed.archivedBuiltInTemplateIds || [],
       admin: { authenticated: false }
     };
@@ -3118,6 +3211,7 @@ function createDefaultState() {
     users: {},
     schedule: {},
     customTemplates: {},
+    remoteCustomTemplateIds: [],
     archivedBuiltInTemplateIds: [],
     admin: { authenticated: false }
   };
@@ -3130,6 +3224,7 @@ function saveState() {
     users: appState.users,
     schedule: appState.schedule,
     customTemplates: appState.customTemplates,
+    remoteCustomTemplateIds: appState.remoteCustomTemplateIds,
     archivedBuiltInTemplateIds: appState.archivedBuiltInTemplateIds
   }));
 }
