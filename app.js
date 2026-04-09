@@ -300,6 +300,271 @@ const CHALLENGE_TEMPLATES = {
     maxScore: 980,
     size: 14,
     words: ["ALPHA", "OMEGA", "THRONE", "TRUMPET", "DRAGON", "SEALS", "LAMB", "BABYLON"]
+  },
+  "exodus-quiz": {
+    id: "exodus-quiz",
+    kind: "quiz",
+    title: "Exodus Escape Quiz",
+    subtitle: "A mid-tier quiz about Moses, Pharaoh, and the wilderness journey.",
+    typeLabel: "Quiz",
+    levelLabel: "Tier 3 | Advanced",
+    maxScore: 760,
+    questions: [
+      {
+        prompt: "What sign did God first give Moses when calling him from the burning bush?",
+        choices: ["A rod turning into a snake", "Rain from heaven", "A dove", "A rainbow"],
+        answer: "A rod turning into a snake"
+      },
+      {
+        prompt: "Who was Moses' brother and spokesperson before Pharaoh?",
+        choices: ["Joshua", "Aaron", "Caleb", "Samuel"],
+        answer: "Aaron"
+      },
+      {
+        prompt: "What marked the Israelite homes during the first Passover?",
+        choices: ["Oil on the floor", "Blood on the doorposts", "A fire on the roof", "Bread on the table"],
+        answer: "Blood on the doorposts"
+      },
+      {
+        prompt: "What did God provide on the ground each morning in the wilderness?",
+        choices: ["Fish", "Manna", "Quail eggs", "Honey"],
+        answer: "Manna"
+      },
+      {
+        prompt: "On which mountain did Moses receive the Ten Commandments?",
+        choices: ["Carmel", "Sinai", "Zion", "Hermon"],
+        answer: "Sinai"
+      },
+      {
+        prompt: "What was built to hold the stone tablets and other holy items?",
+        choices: ["The Ark of the Covenant", "A bronze altar", "The temple gate", "Solomon's throne"],
+        answer: "The Ark of the Covenant"
+      }
+    ]
+  },
+  "kings-quiz": {
+    id: "kings-quiz",
+    kind: "quiz",
+    title: "Kings of Israel Quiz",
+    subtitle: "Test your knowledge of the kings, prophets, and turning points of Israel.",
+    typeLabel: "Quiz",
+    levelLabel: "Tier 4 | Hard",
+    maxScore: 820,
+    questions: [
+      {
+        prompt: "Who was the first king of Israel?",
+        choices: ["Saul", "David", "Solomon", "Samuel"],
+        answer: "Saul"
+      },
+      {
+        prompt: "Which king asked God for wisdom instead of riches?",
+        choices: ["Hezekiah", "Solomon", "Josiah", "Ahab"],
+        answer: "Solomon"
+      },
+      {
+        prompt: "Who confronted King David after his sin with Bathsheba?",
+        choices: ["Elijah", "Nathan", "Gad", "Isaiah"],
+        answer: "Nathan"
+      },
+      {
+        prompt: "Which wicked queen opposed Elijah and promoted idol worship?",
+        choices: ["Athaliah", "Esther", "Jezebel", "Vashti"],
+        answer: "Jezebel"
+      },
+      {
+        prompt: "Which king discovered the Book of the Law and led major reforms?",
+        choices: ["Josiah", "Rehoboam", "Jeroboam", "Manasseh"],
+        answer: "Josiah"
+      },
+      {
+        prompt: "After Solomon, the kingdom split into how many parts?",
+        choices: ["Two kingdoms", "Three kingdoms", "Four tribes", "Seven regions"],
+        answer: "Two kingdoms"
+      }
+    ]
+  },
+  "resurrection-quiz": {
+    id: "resurrection-quiz",
+    kind: "quiz",
+    title: "Resurrection Morning Quiz",
+    subtitle: "A harder Easter-centered quiz on the final chapters of the Gospels.",
+    typeLabel: "Quiz",
+    levelLabel: "Tier 5 | Expert",
+    maxScore: 920,
+    questions: [
+      {
+        prompt: "Who first came to the tomb early on resurrection morning in John's Gospel?",
+        choices: ["Mary Magdalene", "Martha", "Joanna", "Salome"],
+        answer: "Mary Magdalene"
+      },
+      {
+        prompt: "What did the angel say at the empty tomb?",
+        choices: ["He is sleeping", "He has risen", "Wait here", "Go back home"],
+        answer: "He has risen"
+      },
+      {
+        prompt: "Which disciple wanted to see Jesus' wounds before believing?",
+        choices: ["Peter", "Andrew", "Thomas", "Philip"],
+        answer: "Thomas"
+      },
+      {
+        prompt: "On the road to Emmaus, what happened when Jesus broke bread?",
+        choices: ["The sky opened", "Their eyes were opened", "A storm began", "They fell asleep"],
+        answer: "Their eyes were opened"
+      },
+      {
+        prompt: "What did Jesus prepare for his disciples by the Sea of Galilee after rising?",
+        choices: ["A feast of grapes", "Breakfast with fish and bread", "A wedding meal", "Lamb and herbs"],
+        answer: "Breakfast with fish and bread"
+      },
+      {
+        prompt: "Before ascending, what mission did Jesus give his followers?",
+        choices: ["Build a palace", "Return to Egypt", "Make disciples of all nations", "Hide in the city"],
+        answer: "Make disciples of all nations"
+      }
+    ]
+  },
+  "nativity-quiz": {
+    id: "nativity-quiz",
+    kind: "quiz",
+    title: "Nativity Journey Quiz",
+    subtitle: "A Christmas-themed quiz on the birth of Jesus and the early chapters of Luke and Matthew.",
+    typeLabel: "Quiz",
+    levelLabel: "Tier 2 | Explorer",
+    maxScore: 640,
+    questions: [
+      {
+        prompt: "Which angel told Mary that she would give birth to Jesus?",
+        choices: ["Michael", "Gabriel", "Raphael", "Uriel"],
+        answer: "Gabriel"
+      },
+      {
+        prompt: "In what town was Jesus born?",
+        choices: ["Nazareth", "Jerusalem", "Bethlehem", "Jericho"],
+        answer: "Bethlehem"
+      },
+      {
+        prompt: "Who was the earthly husband of Mary?",
+        choices: ["Zechariah", "Joseph", "Simeon", "Boaz"],
+        answer: "Joseph"
+      },
+      {
+        prompt: "Who was told the good news by angels while watching flocks at night?",
+        choices: ["Farmers", "Fishermen", "Shepherds", "Priests"],
+        answer: "Shepherds"
+      },
+      {
+        prompt: "What guided the wise men to Jesus?",
+        choices: ["A pillar of fire", "A bright star", "A trumpet sound", "A cloud"],
+        answer: "A bright star"
+      }
+    ]
+  },
+  "creation-word-search": {
+    id: "creation-word-search",
+    kind: "wordsearch",
+    title: "Creation Word Search",
+    subtitle: "Find the Genesis creation words hidden across the puzzle.",
+    typeLabel: "Word Search",
+    levelLabel: "Tier 1 | Beginner",
+    maxScore: 520,
+    size: 10,
+    words: ["LIGHT", "WATER", "EARTH", "STARS", "GARDEN", "ADAM", "EVE"]
+  },
+  "wisdom-word-search": {
+    id: "wisdom-word-search",
+    kind: "wordsearch",
+    title: "Wisdom Books Search",
+    subtitle: "A richer word search focused on poetry, wisdom, and worship.",
+    typeLabel: "Word Search",
+    levelLabel: "Tier 3 | Advanced",
+    maxScore: 700,
+    size: 11,
+    words: ["PSALM", "PROVERBS", "JOB", "WISDOM", "PRAISE", "TEMPLE", "SONG"]
+  },
+  "apostles-word-search": {
+    id: "apostles-word-search",
+    kind: "wordsearch",
+    title: "Apostles Word Search",
+    subtitle: "Track down names from the twelve and the early church mission.",
+    typeLabel: "Word Search",
+    levelLabel: "Tier 4 | Hard",
+    maxScore: 780,
+    size: 12,
+    words: ["PETER", "ANDREW", "JAMES", "JOHN", "MATTHEW", "THOMAS", "PHILIP"]
+  },
+  "fruit-word-search": {
+    id: "fruit-word-search",
+    kind: "wordsearch",
+    title: "Fruit of the Spirit Search",
+    subtitle: "A larger search based on Galatians and Spirit-formed character.",
+    typeLabel: "Word Search",
+    levelLabel: "Tier 4 | Hard",
+    maxScore: 760,
+    size: 12,
+    words: ["LOVE", "JOY", "PEACE", "PATIENCE", "KINDNESS", "GOODNESS", "FAITHFULNESS"]
+  },
+  "armor-crossword": {
+    id: "armor-crossword",
+    kind: "crossword",
+    title: "Armor of God Crossword",
+    subtitle: "A tactical crossword built around Ephesians 6 and kingdom imagery.",
+    typeLabel: "Crossword",
+    levelLabel: "Tier 4 | Hard",
+    maxScore: 790,
+    size: 11,
+    words: [
+      { clueNumber: 1, label: "1 Across", direction: "across", answer: "DISCIPLES", clue: "Followers of Jesus.", start: { row: 2, col: 1 } },
+      { clueNumber: 1, label: "1 Down", direction: "down", answer: "DOVE", clue: "Symbol of peace and the Spirit.", start: { row: 2, col: 1 } },
+      { clueNumber: 2, label: "2 Down", direction: "down", answer: "ISAAC", clue: "Abraham's promised son.", start: { row: 2, col: 2 } },
+      { clueNumber: 3, label: "3 Down", direction: "down", answer: "SHEEP", clue: "Jesus is the Good Shepherd of these.", start: { row: 2, col: 3 } },
+      { clueNumber: 4, label: "4 Down", direction: "down", answer: "CROSS", clue: "The central symbol of Christ's sacrifice.", start: { row: 2, col: 4 } },
+      { clueNumber: 5, label: "5 Down", direction: "down", answer: "ISRAEL", clue: "The covenant nation.", start: { row: 2, col: 5 } },
+      { clueNumber: 6, label: "6 Down", direction: "down", answer: "PRAISE", clue: "Joyful worship offered to God.", start: { row: 2, col: 6 } },
+      { clueNumber: 7, label: "7 Down", direction: "down", answer: "LIGHT", clue: "Jesus called believers to shine this.", start: { row: 2, col: 7 } },
+      { clueNumber: 8, label: "8 Down", direction: "down", answer: "ELIJAH", clue: "Prophet fed by ravens.", start: { row: 2, col: 8 } },
+      { clueNumber: 9, label: "9 Down", direction: "down", answer: "SPIRIT", clue: "God empowers believers by the Holy ____.", start: { row: 2, col: 9 } }
+    ]
+  },
+  "gospel-crossword": {
+    id: "gospel-crossword",
+    kind: "crossword",
+    title: "Gospel Journey Crossword",
+    subtitle: "A Gospel-themed crossword about miracles, messages, and people near Jesus.",
+    typeLabel: "Crossword",
+    levelLabel: "Tier 3 | Advanced",
+    maxScore: 730,
+    size: 10,
+    words: [
+      { clueNumber: 1, label: "1 Across", direction: "across", answer: "MATTHEW", clue: "Gospel writer who had been a tax collector.", start: { row: 2, col: 1 } },
+      { clueNumber: 1, label: "1 Down", direction: "down", answer: "MARY", clue: "Mother of Jesus.", start: { row: 2, col: 1 } },
+      { clueNumber: 2, label: "2 Down", direction: "down", answer: "ANGEL", clue: "Heavenly messenger.", start: { row: 2, col: 2 } },
+      { clueNumber: 3, label: "3 Down", direction: "down", answer: "THRONE", clue: "A symbol of royal authority.", start: { row: 2, col: 3 } },
+      { clueNumber: 4, label: "4 Down", direction: "down", answer: "TALENT", clue: "A resource entrusted in one of Jesus' parables.", start: { row: 2, col: 4 } },
+      { clueNumber: 5, label: "5 Down", direction: "down", answer: "HOPE", clue: "Confident trust in God's promises.", start: { row: 2, col: 5 } },
+      { clueNumber: 6, label: "6 Down", direction: "down", answer: "ELI", clue: "Priest who raised Samuel.", start: { row: 2, col: 6 } },
+      { clueNumber: 7, label: "7 Down", direction: "down", answer: "WATER", clue: "Jesus turned this into wine at Cana.", start: { row: 2, col: 7 } }
+    ]
+  },
+  "kingdom-crossword": {
+    id: "kingdom-crossword",
+    kind: "crossword",
+    title: "Kingdom Keys Crossword",
+    subtitle: "A compact but tricky crossword built from kingdom words and Bible heroes.",
+    typeLabel: "Crossword",
+    levelLabel: "Tier 5 | Expert",
+    maxScore: 860,
+    size: 10,
+    words: [
+      { clueNumber: 1, label: "1 Across", direction: "across", answer: "KINGDOM", clue: "Jesus preached the good news of this.", start: { row: 2, col: 1 } },
+      { clueNumber: 1, label: "1 Down", direction: "down", answer: "KNEEL", clue: "A posture of prayer and surrender.", start: { row: 2, col: 1 } },
+      { clueNumber: 2, label: "2 Down", direction: "down", answer: "ISAAC", clue: "Promised son of Abraham.", start: { row: 2, col: 2 } },
+      { clueNumber: 3, label: "3 Down", direction: "down", answer: "NOAH", clue: "Builder of the ark.", start: { row: 2, col: 3 } },
+      { clueNumber: 4, label: "4 Down", direction: "down", answer: "GRACE", clue: "God's undeserved favor.", start: { row: 2, col: 4 } },
+      { clueNumber: 5, label: "5 Down", direction: "down", answer: "DAVID", clue: "The shepherd king.", start: { row: 2, col: 5 } },
+      { clueNumber: 6, label: "6 Down", direction: "down", answer: "OBEY", clue: "To follow God's commands.", start: { row: 2, col: 6 } },
+      { clueNumber: 7, label: "7 Down", direction: "down", answer: "MERCY", clue: "Compassion shown to those in need.", start: { row: 2, col: 7 } }
+    ]
   }
 };
 
@@ -379,6 +644,7 @@ let activeWordSearch = null;
 let remoteLeaderboard = [];
 let firebaseBridgeBound = false;
 let leaderboardUnsubscribe = null;
+const scheduleUnsubscribers = {};
 
 ensureScheduleWeek(currentWeekId);
 ensureScheduleWeek(nextWeekId);
@@ -741,6 +1007,34 @@ function renderChallengeCards(user, schedule) {
     const result = getChallengeResult(user, currentWeekId, challenge.instanceId);
     const locked = result.completed;
 
+    if (!template) {
+      return `
+        <article class="challenge-card">
+          <div class="challenge-header">
+            <div>
+              <p class="section-kicker">Unavailable</p>
+              <h4 class="challenge-title">${escapeHtml(challenge.title)}</h4>
+            </div>
+            <span class="grade-pill">Blocked</span>
+          </div>
+
+          <p class="game-copy">This challenge template is not available on this device yet.</p>
+
+          <div class="challenge-meta">
+            <span class="meta-pill">Template missing</span>
+            <span class="meta-pill">Waiting for Game Master sync</span>
+          </div>
+
+          <div class="challenge-stats">
+            <span class="level-badge">Score ${result.score}</span>
+            <span class="level-badge">Stars ${result.stars || 0}</span>
+          </div>
+
+          <button class="challenge-action" disabled type="button">Template Missing</button>
+        </article>
+      `;
+    }
+
     return `
       <article class="challenge-card ${template.kind}">
         <div class="challenge-header">
@@ -824,6 +1118,21 @@ function openGame(instanceId, weekId) {
   }
 
   const template = getTemplateById(challenge.templateId);
+  if (!template) {
+    elements.drawerTitle.textContent = challenge.title;
+    elements.drawerBackdrop.classList.remove("hidden");
+    elements.gameDrawer.classList.remove("hidden");
+    elements.gmDrawer.classList.add("hidden");
+    elements.drawerBody.innerHTML = `
+      <div class="game-shell">
+        <section class="game-card">
+          <h4>${escapeHtml(challenge.title)}</h4>
+          <p class="game-copy">This challenge template is not available on this device yet.</p>
+        </section>
+      </div>
+    `;
+    return;
+  }
   const result = getChallengeResult(user, weekId, instanceId);
 
   activeGameContext = {
@@ -954,6 +1263,8 @@ function renderGameMasterPanel() {
   const board = getDisplayedLeaderboard(currentWeekId);
   const playerCount = Object.keys(appState.users).length;
   const customTemplateCount = Object.keys(appState.customTemplates).length;
+  const builtInTemplateCount = getBuiltInTemplates().length;
+  const activeBuiltInTemplateCount = getActiveBuiltInTemplates().length;
 
   elements.gmBody.innerHTML = `
     <div class="gm-stack">
@@ -970,6 +1281,7 @@ function renderGameMasterPanel() {
           <span class="meta-pill">Players ${playerCount}</span>
           <span class="meta-pill">Current games ${currentSchedule.length}</span>
           <span class="meta-pill">Next week ${nextSchedule.length}</span>
+          <span class="meta-pill">Game inventory ${activeBuiltInTemplateCount}/${builtInTemplateCount}</span>
           <span class="meta-pill">Custom templates ${customTemplateCount}</span>
           <span class="meta-pill">Board entries ${board.length}</span>
         </div>
@@ -992,7 +1304,7 @@ function renderGameMasterPanel() {
           <label class="field-block">
             <span>Game Template</span>
             <select id="scheduleTemplateSelect">
-              ${getAllTemplates().map((template) => `<option value="${template.id}">${escapeHtml(template.title)} (${escapeHtml(template.typeLabel)})</option>`).join("")}
+              ${getSchedulableTemplates().map((template) => `<option value="${template.id}">${escapeHtml(template.title)} (${escapeHtml(template.typeLabel)})</option>`).join("")}
             </select>
           </label>
 
@@ -1116,6 +1428,27 @@ function renderGameMasterPanel() {
       <section class="gm-card">
         <div class="gm-head">
           <div>
+            <h4>Challenge inventory</h4>
+            <p class="gm-copy">Your built-in Bible game library now includes 20 templates. Archive any game to hide it from future scheduling.</p>
+          </div>
+          <span class="gm-pill">${activeBuiltInTemplateCount} active</span>
+        </div>
+        <div class="schedule-grid">${renderTemplateInventoryList()}</div>
+      </section>
+
+      <section class="gm-card">
+        <div class="gm-head">
+          <div>
+            <h4>Archived games</h4>
+            <p class="gm-copy">Restore archived built-in games whenever you want them back in the scheduling inventory.</p>
+          </div>
+        </div>
+        <div class="schedule-grid">${renderArchivedTemplateList()}</div>
+      </section>
+
+      <section class="gm-card">
+        <div class="gm-head">
+          <div>
             <h4>Current week schedule</h4>
             <p class="gm-copy">Remove a scheduled game at any time. Removing it also clears saved results for that game.</p>
           </div>
@@ -1173,6 +1506,14 @@ function renderGameMasterPanel() {
   elements.gmBody.querySelectorAll("[data-delete-template]").forEach((button) => {
     button.addEventListener("click", () => deleteCustomTemplate(button.dataset.deleteTemplate));
   });
+
+  elements.gmBody.querySelectorAll("[data-archive-template]").forEach((button) => {
+    button.addEventListener("click", () => archiveBuiltInTemplate(button.dataset.archiveTemplate));
+  });
+
+  elements.gmBody.querySelectorAll("[data-restore-template]").forEach((button) => {
+    button.addEventListener("click", () => restoreBuiltInTemplate(button.dataset.restoreTemplate));
+  });
 }
 
 function renderScheduleList(schedule, weekId) {
@@ -1187,6 +1528,21 @@ function renderScheduleList(schedule, weekId) {
 
   return schedule.map((challenge) => {
     const template = getTemplateById(challenge.templateId);
+    if (!template) {
+      return `
+        <article class="schedule-item">
+          <h5>${escapeHtml(challenge.title)}</h5>
+          <p class="summary-copy">This scheduled entry points to a template that is not loaded on this device.</p>
+          <div class="schedule-meta">
+            <span class="meta-pill">Missing Template</span>
+          </div>
+          <div class="gm-actions">
+            <button class="secondary-button" data-remove-challenge="${challenge.instanceId}" data-week-id="${weekId}" type="button">Remove Game</button>
+          </div>
+        </article>
+      `;
+    }
+
     return `
       <article class="schedule-item">
         <h5>${escapeHtml(challenge.title)}</h5>
@@ -1232,6 +1588,61 @@ function renderCustomTemplateList() {
   `).join("");
 }
 
+function renderTemplateInventoryList() {
+  const templates = getActiveBuiltInTemplates();
+  if (!templates.length) {
+    return `
+      <article class="empty-state">
+        <strong>No active built-in games</strong>
+        <span>Restore an archived game to bring it back into the scheduling inventory.</span>
+      </article>
+    `;
+  }
+
+  return templates.map((template) => `
+    <article class="schedule-item">
+      <h5>${escapeHtml(template.title)}</h5>
+      <p class="summary-copy">${escapeHtml(template.subtitle)}</p>
+      <div class="schedule-meta">
+        <span class="meta-pill">${escapeHtml(template.typeLabel)}</span>
+        <span class="meta-pill">${escapeHtml(template.levelLabel)}</span>
+        <span class="meta-pill">${template.maxScore} pts</span>
+        <span class="meta-pill">Built-in</span>
+      </div>
+      <div class="gm-actions">
+        <button class="secondary-button" data-archive-template="${template.id}" type="button">Archive Game</button>
+      </div>
+    </article>
+  `).join("");
+}
+
+function renderArchivedTemplateList() {
+  const templates = getArchivedBuiltInTemplates();
+  if (!templates.length) {
+    return `
+      <article class="empty-state">
+        <strong>No archived games</strong>
+        <span>Use Archive Game on any built-in challenge to move it here.</span>
+      </article>
+    `;
+  }
+
+  return templates.map((template) => `
+    <article class="schedule-item">
+      <h5>${escapeHtml(template.title)}</h5>
+      <p class="summary-copy">${escapeHtml(template.subtitle)}</p>
+      <div class="schedule-meta">
+        <span class="meta-pill">${escapeHtml(template.typeLabel)}</span>
+        <span class="meta-pill">${escapeHtml(template.levelLabel)}</span>
+        <span class="meta-pill">Archived</span>
+      </div>
+      <div class="gm-actions">
+        <button class="secondary-button" data-restore-template="${template.id}" type="button">Restore Game</button>
+      </div>
+    </article>
+  `).join("");
+}
+
 function renderAnswerKeyCards(schedule, label) {
   if (!schedule.length) {
     return `
@@ -1247,6 +1658,14 @@ function renderAnswerKeyCards(schedule, label) {
 
 function renderAnswerKeyCard(challenge, label) {
   const template = getTemplateById(challenge.templateId);
+  if (!template) {
+    return `
+      <article class="answer-key">
+        <h5>${escapeHtml(challenge.title)} (${escapeHtml(label)})</h5>
+        <p class="summary-copy">Answer key unavailable because this template has not been loaded on this device.</p>
+      </article>
+    `;
+  }
 
   if (template.kind === "quiz") {
     return `
@@ -1306,14 +1725,14 @@ function renderGameMasterBoard(board) {
   `).join("");
 }
 
-function handleScheduleAdd(event) {
+async function handleScheduleAdd(event) {
   event.preventDefault();
 
   const templateId = document.getElementById("scheduleTemplateSelect").value;
   const weekId = document.getElementById("scheduleWeekSelect").value;
   const customTitle = sanitizeScheduleTitle(document.getElementById("scheduleTitleInput").value);
 
-  addScheduledChallenge(templateId, weekId, customTitle);
+  await addScheduledChallenge(templateId, weekId, customTitle);
 }
 
 function updateCustomChallengeHelp() {
@@ -1354,7 +1773,7 @@ function updateCustomChallengeHelp() {
   `;
 }
 
-function handleCustomChallengeCreate(event) {
+async function handleCustomChallengeCreate(event) {
   event.preventDefault();
 
   try {
@@ -1383,7 +1802,7 @@ function handleCustomChallengeCreate(event) {
     saveState();
 
     if (weekId) {
-      addScheduledChallenge(template.id, weekId, template.title, true);
+      await addScheduledChallenge(template.id, weekId, template.title, true);
       return;
     }
 
@@ -1430,7 +1849,7 @@ function handleChallengeImport(event) {
   reader.readAsText(file);
 }
 
-function addScheduledChallenge(templateId, weekId, customTitle, reopenPanel = false) {
+async function addScheduledChallenge(templateId, weekId, customTitle, reopenPanel = false) {
   const template = getTemplateById(templateId);
   if (!template) {
     return;
@@ -1447,13 +1866,14 @@ function addScheduledChallenge(templateId, weekId, customTitle, reopenPanel = fa
   });
 
   saveState();
+  await saveRemoteSchedule(weekId);
   renderApp();
   if (reopenPanel) {
     openGameMaster();
   }
 }
 
-function removeScheduledChallenge(weekId, instanceId) {
+async function removeScheduledChallenge(weekId, instanceId) {
   ensureScheduleWeek(weekId);
   appState.schedule[weekId] = appState.schedule[weekId]
     .filter((challenge) => challenge.instanceId !== instanceId)
@@ -1467,6 +1887,7 @@ function removeScheduledChallenge(weekId, instanceId) {
   });
 
   saveState();
+  await saveRemoteSchedule(weekId);
   renderApp();
   openGameMaster();
 }
@@ -1948,7 +2369,7 @@ function ensureScheduleWeek(weekId) {
 }
 
 function createDefaultSchedule(weekId) {
-  return DEFAULT_TEMPLATE_IDS.map((templateId, index) => {
+  return DEFAULT_TEMPLATE_IDS.filter((templateId) => !isArchivedBuiltInTemplate(templateId)).map((templateId, index) => {
     const template = getTemplateById(templateId);
     return {
       instanceId: `${weekId}-${templateId}-${index + 1}`,
@@ -2076,6 +2497,8 @@ function bindFirebaseBridge(firebase) {
   });
 
   listenToLeaderboard();
+  listenToSchedule(currentWeekId);
+  listenToSchedule(nextWeekId);
 }
 
 async function handleFirebaseAuthState(authUser) {
@@ -2175,6 +2598,58 @@ function listenToLeaderboard() {
   }, (error) => {
     console.error("Leaderboard listener failed", error);
   });
+}
+
+async function saveRemoteSchedule(weekId) {
+  const firebase = getFirebaseAPI();
+  if (!firebase) {
+    return;
+  }
+
+  try {
+    await firebase.setDoc(
+      firebase.doc(firebase.db, "schedules", weekId),
+      {
+        weekId,
+        items: getWeekSchedule(weekId)
+      },
+      { merge: true }
+    );
+  } catch (error) {
+    console.error("Schedule save failed", error);
+  }
+}
+
+function listenToSchedule(weekId) {
+  const firebase = getFirebaseAPI();
+  if (!firebase) {
+    return;
+  }
+
+  if (scheduleUnsubscribers[weekId]) {
+    scheduleUnsubscribers[weekId]();
+  }
+
+  scheduleUnsubscribers[weekId] = firebase.onSnapshot(
+    firebase.doc(firebase.db, "schedules", weekId),
+    (snapshot) => {
+      if (!snapshot.exists()) {
+        return;
+      }
+
+      const data = snapshot.data();
+      appState.schedule[weekId] = Array.isArray(data.items) ? data.items : [];
+      saveState();
+      renderApp();
+
+      if (appState.admin.authenticated) {
+        renderGameMasterPanel();
+      }
+    },
+    (error) => {
+      console.error("Schedule listen failed", error);
+    }
+  );
 }
 
 async function loadRemoteProfile(userId) {
@@ -2628,6 +3103,7 @@ function loadState() {
       users: parsed.users || {},
       schedule: parsed.version < STORAGE_VERSION ? {} : (parsed.schedule || {}),
       customTemplates: parsed.customTemplates || {},
+      archivedBuiltInTemplateIds: parsed.archivedBuiltInTemplateIds || [],
       admin: { authenticated: false }
     };
   } catch (error) {
@@ -2642,6 +3118,7 @@ function createDefaultState() {
     users: {},
     schedule: {},
     customTemplates: {},
+    archivedBuiltInTemplateIds: [],
     admin: { authenticated: false }
   };
 }
@@ -2652,7 +3129,8 @@ function saveState() {
     currentUserId: appState.currentUserId,
     users: appState.users,
     schedule: appState.schedule,
-    customTemplates: appState.customTemplates
+    customTemplates: appState.customTemplates,
+    archivedBuiltInTemplateIds: appState.archivedBuiltInTemplateIds
   }));
 }
 
@@ -2955,12 +3433,55 @@ function getAllTemplates() {
   return Object.values(merged).sort((left, right) => left.title.localeCompare(right.title));
 }
 
+function getBuiltInTemplates() {
+  return Object.values(CHALLENGE_TEMPLATES).sort((left, right) => left.title.localeCompare(right.title));
+}
+
+function getActiveBuiltInTemplates() {
+  return getBuiltInTemplates().filter((template) => !isArchivedBuiltInTemplate(template.id));
+}
+
+function getArchivedBuiltInTemplates() {
+  return getBuiltInTemplates().filter((template) => isArchivedBuiltInTemplate(template.id));
+}
+
+function getSchedulableTemplates() {
+  const customTemplates = Object.values(appState.customTemplates);
+  return [...getActiveBuiltInTemplates(), ...customTemplates].sort((left, right) => left.title.localeCompare(right.title));
+}
+
 function getTemplateById(templateId) {
   return appState.customTemplates[templateId] || CHALLENGE_TEMPLATES[templateId] || null;
 }
 
 function isCustomTemplate(templateId) {
   return Object.prototype.hasOwnProperty.call(appState.customTemplates, templateId);
+}
+
+function isArchivedBuiltInTemplate(templateId) {
+  return appState.archivedBuiltInTemplateIds.includes(templateId);
+}
+
+function archiveBuiltInTemplate(templateId) {
+  if (!CHALLENGE_TEMPLATES[templateId] || isArchivedBuiltInTemplate(templateId)) {
+    return;
+  }
+
+  appState.archivedBuiltInTemplateIds.push(templateId);
+  saveState();
+  renderApp();
+  openGameMaster();
+}
+
+function restoreBuiltInTemplate(templateId) {
+  if (!isArchivedBuiltInTemplate(templateId)) {
+    return;
+  }
+
+  appState.archivedBuiltInTemplateIds = appState.archivedBuiltInTemplateIds.filter((id) => id !== templateId);
+  saveState();
+  renderApp();
+  openGameMaster();
 }
 
 function getWeekId(date) {
