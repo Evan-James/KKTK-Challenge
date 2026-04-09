@@ -659,6 +659,7 @@ let customTemplateUnsubscribe = null;
 let playerDirectoryUnsubscribe = null;
 let playerMessagesUnsubscribe = null;
 let gameMasterMessagesUnsubscribe = null;
+let playerAccessUnsubscribe = null;
 
 ensureScheduleWeek(currentWeekId);
 ensureScheduleWeek(nextWeekId);
@@ -1583,6 +1584,16 @@ function renderGameMasterPanel() {
       <section class="gm-card">
         <div class="gm-head">
           <div>
+            <h4>Player directory</h4>
+            <p class="gm-copy">See every saved player account, message them directly, or remove them from the app with confirmation.</p>
+          </div>
+        </div>
+        <div class="gm-player-list">${renderGameMasterPlayerDirectory(board)}</div>
+      </section>
+
+      <section class="gm-card">
+        <div class="gm-head">
+          <div>
             <h4>Schedule a game</h4>
             <p class="gm-copy">Add a scheduled challenge for this week or next week from the built-in or custom templates.</p>
           </div>
@@ -1835,6 +1846,21 @@ function renderGameMasterPanel() {
   elements.gmBody.querySelectorAll("[data-message-player]").forEach((button) => {
     button.addEventListener("click", () => focusMessageComposer(button.dataset.messagePlayer));
   });
+
+  elements.gmBody.querySelectorAll("[data-delete-message]").forEach((button) => {
+    button.addEventListener("click", () => deleteGameMasterMessage(button.dataset.deleteMessage));
+  });
+
+  elements.gmBody.querySelectorAll("[data-remove-player]").forEach((button) => {
+    button.addEventListener("click", () => removePlayerFromGame(button.dataset.removePlayer));
+  });
+
+  elements.gmBody.querySelectorAll("[data-player-avatar]").forEach((stage) => {
+    const player = getKnownPlayers().find((entry) => entry.userId === stage.dataset.playerAvatar);
+    if (player) {
+      renderAvatarStage(stage, player.profile);
+    }
+  });
 }
 
 function renderGameMasterAvatarBuilderCard() {
@@ -1984,10 +2010,48 @@ function renderGameMasterMessageFeed() {
           <h4>${escapeHtml(message.subject || "Direct message")}</h4>
           <p class="leaderboard-note">${escapeHtml(formatDateTimeLabel(message.createdAt))}</p>
         </div>
+        <button class="secondary-button compact-button" data-delete-message="${message.id}" type="button">Delete</button>
       </div>
       <p class="panel-copy">${formatMultilineHtml(message.body || "")}</p>
     </article>
   `).join("");
+}
+
+function renderGameMasterPlayerDirectory(board) {
+  const players = getKnownPlayers();
+  if (!players.length) {
+    return `
+      <article class="empty-state">
+        <strong>No players yet</strong>
+        <span>Players will appear here after they create an account and save their hero.</span>
+      </article>
+    `;
+  }
+
+  const standings = {};
+  board.forEach((entry, index) => {
+    standings[entry.userId] = { rank: index + 1, score: entry.score, note: entry.note };
+  });
+
+  return players.map((player) => {
+    const standing = standings[player.userId];
+    return `
+      <article class="player-directory-card">
+        <div class="player-message-head">
+          <div class="avatar-stage message-avatar" data-player-avatar="${player.userId}"></div>
+          <div>
+            <p class="section-kicker">${escapeHtml(player.username ? `@${player.username}` : "Player")}</p>
+            <h4>${escapeHtml(player.heroName || "Unnamed Hero")}</h4>
+            <p class="leaderboard-note">${escapeHtml(standing ? `Current rank #${standing.rank} with ${standing.score} points` : "No current-week score yet")}</p>
+          </div>
+        </div>
+        <div class="gm-actions">
+          <button class="secondary-button compact-button" data-message-player="${player.userId}" type="button">Message Player</button>
+          <button class="secondary-button compact-button danger-button" data-remove-player="${player.userId}" type="button">Remove Player</button>
+        </div>
+      </article>
+    `;
+  }).join("");
 }
 
 function renderGameMasterAvatarBuilderUI() {
@@ -2125,6 +2189,52 @@ function focusMessageComposer(playerId) {
   select.value = playerId;
   select.scrollIntoView({ behavior: "smooth", block: "center" });
   select.focus();
+}
+
+async function deleteGameMasterMessage(messageId) {
+  const message = gameMasterSentMessages.find((entry) => entry.id === messageId);
+  if (!messageId || !message) {
+    return;
+  }
+
+  const confirmed = window.confirm(`Delete the message to ${message.toPlayerName || "this player"}? This will remove it from their inbox too.`);
+  if (!confirmed) {
+    return;
+  }
+
+  try {
+    await deleteRemotePlayerMessage(messageId);
+    showGameMasterMessage(`Message deleted for ${message.toPlayerName || "player"}.`, "messagePlayerForm");
+  } catch (error) {
+    showGameMasterMessage("The message could not be deleted right now. Check Firebase and try again.", "messagePlayerForm");
+  }
+}
+
+async function removePlayerFromGame(userId) {
+  const player = getKnownPlayers().find((entry) => entry.userId === userId);
+  if (!userId || !player) {
+    return;
+  }
+
+  const confirmed = window.confirm(`Remove ${player.heroName || player.username || "this player"} from the app? They will lose access and their saved scores/messages will be removed.`);
+  if (!confirmed) {
+    return;
+  }
+
+  try {
+    await removeRemotePlayer(userId, player);
+    removePlayerLocally(userId);
+    await syncAnnouncementsAfterPlayerRemoval(userId);
+    saveState();
+    renderApp();
+    if (isGameMasterPage) {
+      renderGameMasterPanel();
+    }
+    showGameMasterMessage(`${player.heroName || player.username} was removed from the app.`, "messagePlayerForm");
+  } catch (error) {
+    console.error("Player removal failed", error);
+    showGameMasterMessage("The player could not be removed right now. Check Firebase and try again.", "messagePlayerForm");
+  }
 }
 
 function renderScheduleCalendar(schedule, weekId) {
@@ -3324,6 +3434,10 @@ async function handleFirebaseAuthState(authUser) {
   if (!authUser) {
     appState.currentUserId = null;
     playerMessages = [];
+    if (playerAccessUnsubscribe) {
+      playerAccessUnsubscribe();
+      playerAccessUnsubscribe = null;
+    }
     if (playerMessagesUnsubscribe) {
       playerMessagesUnsubscribe();
       playerMessagesUnsubscribe = null;
@@ -3337,6 +3451,19 @@ async function handleFirebaseAuthState(authUser) {
   }
 
   const username = getAuthUsername(authUser);
+  const removed = await isPlayerRemoved(authUser.uid);
+  if (removed) {
+    delete appState.users[authUser.uid];
+    appState.currentUserId = null;
+    saveState();
+    setAuthMessage("This player account was removed by the Game Master.");
+    const firebase = getFirebaseAPI();
+    if (firebase) {
+      await firebase.signOut(firebase.auth);
+    }
+    return;
+  }
+
   if (!appState.users[authUser.uid]) {
     appState.users[authUser.uid] = {
       id: authUser.uid,
@@ -3358,6 +3485,7 @@ async function handleFirebaseAuthState(authUser) {
   listenToSchedule(nextWeekId);
   listenToWeekAnnouncement(currentWeekId);
   listenToWeekAnnouncement(nextWeekId);
+  listenToCurrentPlayerAccess(authUser.uid);
   listenToPlayerMessages(authUser.uid);
   await loadRemoteProfile(authUser.uid);
   await loadRemoteWeekProgress(authUser.uid, currentWeekId);
@@ -3445,6 +3573,58 @@ function getKnownPlayers() {
 
   return Object.values(playersById).sort((left, right) =>
     (left.heroName || left.username).localeCompare(right.heroName || right.username)
+  );
+}
+
+async function isPlayerRemoved(userId) {
+  const firebase = getFirebaseAPI();
+  if (!firebase || !userId) {
+    return false;
+  }
+
+  try {
+    const snapshot = await firebase.getDoc(firebase.doc(firebase.db, "playerAccess", userId));
+    return snapshot.exists() && Boolean(snapshot.data()?.removed);
+  } catch (error) {
+    console.error("Player access check failed", error);
+    return false;
+  }
+}
+
+function listenToCurrentPlayerAccess(userId) {
+  const firebase = getFirebaseAPI();
+  if (!firebase || !userId) {
+    return;
+  }
+
+  if (playerAccessUnsubscribe) {
+    playerAccessUnsubscribe();
+  }
+
+  playerAccessUnsubscribe = firebase.onSnapshot(
+    firebase.doc(firebase.db, "playerAccess", userId),
+    async (snapshot) => {
+      if (!snapshot.exists() || !snapshot.data()?.removed) {
+        return;
+      }
+
+      delete appState.users[userId];
+      appState.currentUserId = null;
+      saveState();
+      setAuthMessage("This player account was removed by the Game Master.");
+      playerMessages = [];
+
+      if (firebase.auth.currentUser?.uid === userId) {
+        try {
+          await firebase.signOut(firebase.auth);
+        } catch (error) {
+          console.error("Player access sign out failed", error);
+        }
+      }
+    },
+    (error) => {
+      console.error("Player access listen failed", error);
+    }
   );
 }
 
@@ -3961,6 +4141,112 @@ async function saveRemotePlayerMessage(message) {
     console.error("Player message save failed", error);
     throw error;
   }
+}
+
+async function deleteRemotePlayerMessage(messageId) {
+  const firebase = getFirebaseAPI();
+  if (!firebase || !messageId) {
+    return;
+  }
+
+  try {
+    await firebase.deleteDoc(firebase.doc(firebase.db, "playerMessages", messageId));
+  } catch (error) {
+    console.error("Player message delete failed", error);
+    throw error;
+  }
+}
+
+async function removeRemotePlayer(userId, player) {
+  const firebase = getFirebaseAPI();
+  if (!firebase || !userId) {
+    return;
+  }
+
+  const removedAt = new Date().toISOString();
+  const heroName = sanitizePodiumName(player?.heroName || "");
+  const username = sanitizeUsername(player?.username || "");
+
+  try {
+    await firebase.setDoc(firebase.doc(firebase.db, "playerAccess", userId), {
+      removed: true,
+      removedAt,
+      heroName,
+      username
+    }, { merge: true });
+
+    await firebase.deleteDoc(firebase.doc(firebase.db, "profiles", userId));
+
+    const progressQuery = firebase.query(
+      firebase.collection(firebase.db, "progress"),
+      firebase.where("userId", "==", userId)
+    );
+    const progressSnapshot = await firebase.getDocs(progressQuery);
+    const affectedWeekIds = [...new Set([
+      currentWeekId,
+      nextWeekId,
+      ...progressSnapshot.docs.map((docSnapshot) => docSnapshot.data()?.weekId).filter(Boolean)
+    ])];
+
+    await Promise.all(progressSnapshot.docs.map((docSnapshot) => firebase.deleteDoc(docSnapshot.ref)));
+    await Promise.all(affectedWeekIds.map((weekId) =>
+      firebase.deleteDoc(firebase.doc(firebase.db, "leaderboards", weekId, "scores", userId))
+    ));
+
+    const messageQuery = firebase.query(
+      firebase.collection(firebase.db, "playerMessages"),
+      firebase.where("toUserId", "==", userId)
+    );
+    const messageSnapshot = await firebase.getDocs(messageQuery);
+    await Promise.all(messageSnapshot.docs.map((docSnapshot) => firebase.deleteDoc(docSnapshot.ref)));
+  } catch (error) {
+    console.error("Remote player removal failed", error);
+    throw error;
+  }
+}
+
+function removePlayerLocally(userId) {
+  delete appState.users[userId];
+  if (appState.currentUserId === userId) {
+    appState.currentUserId = null;
+  }
+  remotePlayerDirectory = remotePlayerDirectory.filter((entry) => entry.userId !== userId);
+  remoteLeaderboard = remoteLeaderboard.filter((entry) => entry.userId !== userId);
+  gameMasterSentMessages = gameMasterSentMessages.filter((entry) => entry.toUserId !== userId);
+  playerMessages = playerMessages.filter((entry) => entry.toUserId !== userId);
+}
+
+async function syncAnnouncementsAfterPlayerRemoval(userId) {
+  const affectedWeeks = [];
+
+  Object.keys(appState.weekAnnouncements).forEach((weekId) => {
+    const announcement = getWeekAnnouncement(weekId);
+    if (!announcement || !announcement.podium.some((entry) => entry.userId === userId)) {
+      return;
+    }
+
+    const nextPodium = announcement.podium
+      .filter((entry) => entry.userId !== userId)
+      .map((entry, index) => ({ ...entry, rank: index + 1 }));
+
+    if (!nextPodium.length) {
+      delete appState.weekAnnouncements[weekId];
+      affectedWeeks.push({ weekId, clear: true });
+      return;
+    }
+
+    appState.weekAnnouncements[weekId] = normalizeWeekAnnouncement({
+      ...announcement,
+      podium: nextPodium,
+      winnerUserId: nextPodium[0].userId,
+      winnerName: nextPodium[0].name
+    }, weekId);
+    affectedWeeks.push({ weekId, clear: false });
+  });
+
+  await Promise.all(affectedWeeks.map((entry) =>
+    entry.clear ? clearRemoteWeekAnnouncement(entry.weekId) : saveRemoteWeekAnnouncement(entry.weekId)
+  ));
 }
 
 async function loadRemoteProfile(userId) {

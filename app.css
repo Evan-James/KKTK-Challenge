@@ -766,6 +766,14 @@ button {
   padding: 0.95rem 1rem;
 }
 
+.player-directory-card {
+  padding: 1rem 1.1rem;
+  border-radius: 24px;
+  background: rgba(255, 255, 255, 0.82);
+  border: 1px solid rgba(97, 63, 30, 0.08);
+  box-shadow: var(--shadow-soft);
+}
+
 .player-message-card p {
   margin: 0;
 }
@@ -806,6 +814,16 @@ button {
 .compact-button {
   padding: 0.6rem 0.8rem;
   min-height: auto;
+}
+
+.danger-button {
+  background: rgba(143, 42, 42, 0.08);
+  border-color: rgba(143, 42, 42, 0.22);
+  color: #7e2626;
+}
+
+.danger-button:hover {
+  background: rgba(143, 42, 42, 0.14);
 }
 
 @keyframes podium-bob {
